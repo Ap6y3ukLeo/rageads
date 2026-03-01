@@ -1,209 +1,301 @@
 import React, { useState } from 'react';
-import { Calendar, momentLocalizer } from 'react-big-calendar';
-import moment from 'moment';
-import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { Calendar as CalendarIcon, Filter, List } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
 import { useTasks } from '../../contexts/TaskContext';
-
-// Настройка локализации
-const localizer = momentLocalizer(moment);
-moment.locale('ru');
+import TaskModal from '../UI/TaskModal';
 
 const CalendarView = () => {
   const { tasks } = useTasks();
-  const [view, setView] = useState('month');
-  const [date, setDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [initialColumn, setInitialColumn] = useState('todo');
 
-  // Преобразуем задачи в события для календаря
-  const events = tasks.map(task => ({
-    id: task.id,
-    title: task.title,
-    start: new Date(task.date),
-    end: new Date(new Date(task.date).getTime() + 60 * 60 * 1000), // +1 час
-    desc: task.description,
-    priority: task.priority,
-    color: task.color,
-    allDay: true
-  }));
-
-  // Цвета для приоритетов
-  const eventStyleGetter = (event) => {
-    const priorityColors = {
-      high: '#ef4444',
-      medium: '#f59e0b',
-      low: '#10b981'
-    };
+  // Получить дни текущего месяца
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
     
-    const color = priorityColors[event.priority] || '#3b82f6';
+    const days = [];
     
-    return {
-      style: {
-        backgroundColor: `${color}20`,
-        borderLeft: `4px solid ${color}`,
-        color: '#1f2937',
-        borderRadius: '6px',
-        border: 'none',
-        padding: '2px 8px'
-      }
-    };
+    // Дни предыдущего месяца
+    for (let i = startingDay - 1; i >= 0; i--) {
+      const d = new Date(year, month, -i);
+      days.push({ date: d, isCurrentMonth: false });
+    }
+    
+    // Дни текущего месяца
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push({ date: new Date(year, month, i), isCurrentMonth: true });
+    }
+    
+    // Дни следующего месяца
+    const remainingDays = 42 - days.length;
+    for (let i = 1; i <= remainingDays; i++) {
+      days.push({ date: new Date(year, month + 1, i), isCurrentMonth: false });
+    }
+    
+    return days;
   };
 
-  // Компонент для отображения события
-  const CustomEvent = ({ event }) => (
-    <div className="p-1">
-      <div className="font-medium truncate">{event.title}</div>
-      {event.desc && (
-        <div className="text-xs opacity-75 truncate">{event.desc}</div>
-      )}
-    </div>
-  );
+  const days = getDaysInMonth(currentDate);
+  const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
-  // Компонент для тулбара
-  const CustomToolbar = (toolbar) => {
-    const goToBack = () => {
-      toolbar.onNavigate('PREV');
+  // Получить задачи на конкретный день
+  const getTasksForDate = (date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    return tasks.filter(task => {
+      const taskDate = new Date(task.date).toISOString().split('T')[0];
+      return taskDate === dateStr;
+    });
+  };
+
+  // Проверить, является ли дата сегодняшней
+  const isToday = (date) => {
+    const today = new Date();
+    return date.toDateString() === today.toDateString();
+  };
+
+  // Навигация по месяцам
+  const goToPrevMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  };
+
+  const goToNextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  // Открыть модальное окно для добавления задачи
+  const handleDateClick = (date) => {
+    setSelectedDate(date);
+    setInitialColumn('todo');
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedDate(null);
+  };
+
+  // Получить цвет задачи
+  const getTaskColor = (color) => {
+    const colors = {
+      blue: 'bg-blue-500',
+      purple: 'bg-purple-500',
+      green: 'bg-green-500',
+      yellow: 'bg-yellow-500',
+      red: 'bg-red-500',
+      pink: 'bg-pink-500',
+      black: 'bg-black',
+      gray: 'bg-gray-500',
     };
+    return colors[color] || 'bg-blue-500';
+  };
 
-    const goToNext = () => {
-      toolbar.onNavigate('NEXT');
-    };
+  const monthNames = [
+    'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+    'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+  ];
 
-    const goToCurrent = () => {
-      toolbar.onNavigate('TODAY');
-    };
-
-    return (
-      <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+  return (
+    <div className="space-y-4">
+      {/* Заголовок и навигация */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-            <CalendarIcon className="mr-2" size={24} />
-            Календарь задач
+          <CalendarIcon className="text-primary-500" size={28} />
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Календарь
           </h2>
-          <span className="text-sm text-gray-500 dark:text-gray-400">
-            {toolbar.label}
-          </span>
         </div>
         
-        <div className="flex items-center gap-2">
-          <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-            <button
-              onClick={() => toolbar.onView('month')}
-              className={`px-3 py-1.5 text-sm rounded transition-colors ${
-                view === 'month' 
-                  ? 'bg-white dark:bg-gray-700 shadow-sm' 
-                  : 'hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
-            >
-              Месяц
-            </button>
-            <button
-              onClick={() => toolbar.onView('week')}
-              className={`px-3 py-1.5 text-sm rounded transition-colors ${
-                view === 'week' 
-                  ? 'bg-white dark:bg-gray-700 shadow-sm' 
-                  : 'hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
-            >
-              Неделя
-            </button>
-            <button
-              onClick={() => toolbar.onView('day')}
-              className={`px-3 py-1.5 text-sm rounded transition-colors ${
-                view === 'day' 
-                  ? 'bg-white dark:bg-gray-700 shadow-sm' 
-                  : 'hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
-            >
-              День
-            </button>
-          </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={goToPrevMonth}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <ChevronLeft size={24} className="text-gray-600 dark:text-gray-400" />
+          </button>
           
           <button
-            onClick={goToBack}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-          >
-            ‹
-          </button>
-          <button
-            onClick={goToCurrent}
-            className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
+            onClick={goToToday}
+            className="px-3 py-2 text-sm bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
           >
             Сегодня
           </button>
+          
           <button
-            onClick={goToNext}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            onClick={goToNextMonth}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
-            ›
+            <ChevronRight size={24} className="text-gray-600 dark:text-gray-400" />
           </button>
+          
+          <span className="ml-2 text-lg font-semibold text-gray-900 dark:text-white min-w-[140px]">
+            {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+          </span>
         </div>
       </div>
-    );
-  };
 
-  return (
-    <div className="space-y-6">
-      <CustomToolbar 
-        label={moment(date).format('MMMM YYYY')}
-        onNavigate={(action) => {
-          if (action === 'PREV') setDate(moment(date).subtract(1, view).toDate());
-          if (action === 'NEXT') setDate(moment(date).add(1, view).toDate());
-          if (action === 'TODAY') setDate(new Date());
-        }}
-        onView={setView}
-        view={view}
-      />
-      
+      {/* Названия дней недели */}
+      <div className="grid grid-cols-7 gap-1">
+        {weekDays.map((day, index) => (
+          <div 
+            key={day} 
+            className={`text-center text-sm font-medium py-2 ${
+              index >= 5 
+                ? 'text-red-500 dark:text-red-400' 
+                : 'text-gray-600 dark:text-gray-400'
+            }`}
+          >
+            <span className="hidden sm:inline">{day}</span>
+            <span className="sm:hidden">{day[0]}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Сетка календаря */}
+      <div className="grid grid-cols-7 gap-1">
+        {days.map((day, index) => {
+          const dayTasks = getTasksForDate(day.date);
+          const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6;
+          
+          return (
+            <div
+              key={index}
+              onClick={() => handleDateClick(day.date)}
+              className={`
+                min-h-[80px] sm:min-h-[100px] p-1 rounded-lg cursor-pointer transition-all
+                ${day.isCurrentMonth 
+                  ? 'bg-white dark:bg-gray-800' 
+                  : 'bg-gray-50 dark:bg-gray-900'
+                }
+                ${isToday(day.date) 
+                  ? 'ring-2 ring-primary-500' 
+                  : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                }
+                border border-gray-200 dark:border-gray-700
+              `}
+            >
+              <div className="flex justify-between items-start">
+                <span className={`
+                  text-sm font-medium w-6 h-6 flex items-center justify-center rounded-full
+                  ${isToday(day.date) 
+                    ? 'bg-primary-500 text-white' 
+                    : day.isCurrentMonth
+                      ? 'text-gray-900 dark:text-white'
+                      : 'text-gray-400 dark:text-gray-600'
+                  }
+                  ${isWeekend && day.isCurrentMonth ? 'text-red-500' : ''}
+                `}>
+                  {day.date.getDate()}
+                </span>
+                
+                {dayTasks.length > 0 && (
+                  <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded-full">
+                    {dayTasks.length}
+                  </span>
+                )}
+              </div>
+              
+              <div className="mt-1 space-y-1 max-h-[60px] sm:max-h-[80px] overflow-y-auto">
+                {dayTasks.slice(0, 3).map(task => (
+                  <div
+                    key={task.id}
+                    className={`
+                      text-xs p-1 rounded truncate text-white
+                      ${getTaskColor(task.color)}
+                    `}
+                    title={task.title}
+                  >
+                    {task.title}
+                  </div>
+                ))}
+                {dayTasks.length > 3 && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                    +{dayTasks.length - 3}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Список задач на выбранный день или сегодня */}
       <div className="card p-4">
-        <div className="h-[600px]">
-          <Calendar
-            localizer={localizer}
-            events={events}
-            startAccessor="start"
-            endAccessor="end"
-            style={{ height: '100%' }}
-            onView={setView}
-            view={view}
-            onNavigate={setDate}
-            date={date}
-            components={{
-              toolbar: CustomToolbar,
-              event: CustomEvent,
-            }}
-            eventPropGetter={eventStyleGetter}
-            messages={{
-              today: 'Сегодня',
-              previous: 'Назад',
-              next: 'Вперед',
-              month: 'Месяц',
-              week: 'Неделя',
-              day: 'День',
-              agenda: 'Список',
-              date: 'Дата',
-              time: 'Время',
-              event: 'Событие',
-              noEventsInRange: 'Нет задач на этот период',
-              showMore: total => `+${total} еще`
-            }}
-          />
-        </div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+          Задачи на сегодня
+        </h3>
+        {(() => {
+          const todayTasks = getTasksForDate(new Date());
+          if (todayTasks.length === 0) {
+            return (
+              <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+                На сегодня задач нет
+              </p>
+            );
+          }
+          return (
+            <div className="space-y-2">
+              {todayTasks.map(task => (
+                <div
+                  key={task.id}
+                  className={`
+                    p-3 rounded-lg border-l-4 bg-gray-50 dark:bg-gray-700
+                    ${getTaskColor(task.color)} border-l-current
+                  `}
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-white">
+                        {task.title}
+                      </h4>
+                      {task.description && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          {task.description}
+                        </p>
+                      )}
+                    </div>
+                    {task.time && (
+                      <span className="text-sm text-primary-500 font-medium">
+                        {task.time}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </div>
-      
-      {/* Легенда приоритетов */}
-      <div className="flex flex-wrap gap-4 text-sm">
-        <div className="flex items-center">
-          <div className="w-3 h-3 bg-red-500 rounded mr-2"></div>
-          <span>Высокий приоритет</span>
-        </div>
-        <div className="flex items-center">
-          <div className="w-3 h-3 bg-yellow-500 rounded mr-2"></div>
-          <span>Средний приоритет</span>
-        </div>
-        <div className="flex items-center">
-          <div className="w-3 h-3 bg-green-500 rounded mr-2"></div>
-          <span>Низкий приоритет</span>
-        </div>
-      </div>
+
+      {/* Кнопка добавления задачи */}
+      <button
+        onClick={() => {
+          setSelectedDate(new Date());
+          setIsModalOpen(true);
+        }}
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-primary-500 hover:bg-primary-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center active:scale-95"
+        title="Добавить задачу"
+      >
+        <Plus size={28} />
+      </button>
+
+      {isModalOpen && (
+        <TaskModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          initialColumn={initialColumn}
+          initialDate={selectedDate}
+        />
+      )}
     </div>
   );
 };

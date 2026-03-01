@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
-import { X, Calendar as CalendarIcon, Tag, Clock } from 'lucide-react';
+import { X, Calendar as CalendarIcon, Clock } from 'lucide-react';
 import { useTasks } from '../../contexts/TaskContext';
 
-const TaskModal = ({ isOpen, onClose, initialColumn, taskToEdit }) => {
+const TaskModal = ({ isOpen, onClose, initialColumn, taskToEdit, initialDate }) => {
   const { addTask, updateTask } = useTasks();
   const [title, setTitle] = useState(taskToEdit?.title || '');
   const [description, setDescription] = useState(taskToEdit?.description || '');
   const [selectedDate, setSelectedDate] = useState(
     taskToEdit?.date ? new Date(taskToEdit.date).toISOString().split('T')[0] : 
+    initialDate ? initialDate.toISOString().split('T')[0] :
     new Date().toISOString().split('T')[0]
+  );
+  const [selectedTime, setSelectedTime] = useState(
+    taskToEdit?.time ? taskToEdit.time : ''
   );
   const [dateMode, setDateMode] = useState('picker'); // 'picker' или 'manual'
   const [manualDate, setManualDate] = useState(
@@ -29,6 +33,7 @@ const TaskModal = ({ isOpen, onClose, initialColumn, taskToEdit }) => {
       title,
       description,
       date: new Date(dateValue),
+      time: selectedTime || null,
       color,
     };
 
@@ -148,23 +153,39 @@ const TaskModal = ({ isOpen, onClose, initialColumn, taskToEdit }) => {
               )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Цвет метки
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {colorOptions.map(option => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setColor(option.value)}
-                    className={`w-7 h-7 rounded-full ${option.class} ${
-                      color === option.value ? 'ring-2 ring-offset-2 ring-primary-500' : ''
-                    } active:scale-95`}
-                    title={option.label}
-                  />
-                ))}
+            {isEditing && (
+              <div>
+                <label className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <Clock size={16} className="mr-2" />
+                  Время
+                </label>
+                <input
+                  type="time"
+                  value={selectedTime}
+                  onChange={(e) => setSelectedTime(e.target.value)}
+                  className="input"
+                  placeholder="ЧЧ:ММ"
+                />
               </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Цвет метки
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {colorOptions.map(option => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setColor(option.value)}
+                  className={`w-7 h-7 rounded-full ${option.class} ${
+                    color === option.value ? 'ring-2 ring-offset-2 ring-primary-500' : ''
+                  } active:scale-95`}
+                  title={option.label}
+                />
+              ))}
             </div>
           </div>
 

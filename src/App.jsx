@@ -4,7 +4,6 @@ import Header from './components/Layout/Header';
 import BoardView from './components/Board/BoardView';
 import CalendarView from './components/Calendar/CalendarView';
 import SimpleAuth from './components/Auth/SimpleAuth';
-import SyncStatus from './components/UI/SyncStatus';
 import DataManager from './components/UI/DataManager';
 import './index.css';
 
@@ -50,7 +49,6 @@ const AppContent = () => {
         </main>
 
         <DataManager />
-        <SyncStatus />
         
         <footer className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-800">
           <div className="container mx-auto px-4 text-center text-gray-600 dark:text-gray-400 text-sm">

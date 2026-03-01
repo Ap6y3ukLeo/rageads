@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Calendar, Tag, Trash2, Edit2 } from 'lucide-react';
+import { GripVertical, Calendar, Trash2, Edit2 } from 'lucide-react';
 import { useTasks } from '../../contexts/TaskContext';
 
 const TaskCard = ({ task }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description);
+  const [editedDate, setEditedDate] = useState(
+    task.date ? new Date(task.date).toISOString().split('T')[0] : ''
+  );
+  const [editedTime, setEditedTime] = useState(task.time || '');
+  const [editedColor, setEditedColor] = useState(task.color || 'blue');
   
   const { deleteTask, updateTask } = useTasks();
   
@@ -30,10 +35,24 @@ const TaskCard = ({ task }) => {
   const handleSave = () => {
     updateTask(task.id, {
       title: editedTitle,
-      description: editedDescription
+      description: editedDescription,
+      date: new Date(editedDate),
+      time: editedTime || null,
+      color: editedColor
     });
     setIsEditing(false);
   };
+
+  const colorOptions = [
+    { value: 'blue', class: 'bg-blue-500' },
+    { value: 'purple', class: 'bg-purple-500' },
+    { value: 'green', class: 'bg-green-500' },
+    { value: 'yellow', class: 'bg-yellow-500' },
+    { value: 'red', class: 'bg-red-500' },
+    { value: 'pink', class: 'bg-pink-500' },
+    { value: 'black', class: 'bg-black' },
+    { value: 'gray', class: 'bg-gray-500' },
+  ];
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -41,6 +60,11 @@ const TaskCard = ({ task }) => {
       day: 'numeric',
       month: 'short'
     });
+  };
+
+  const formatTime = (timeString) => {
+    if (!timeString) return null;
+    return timeString;
   };
 
   return (
@@ -83,6 +107,41 @@ const TaskCard = ({ task }) => {
                     className="input text-sm min-h-[60px]"
                     placeholder="Описание"
                   />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-gray-500 dark:text-gray-400">Дата</label>
+                      <input
+                        type="date"
+                        value={editedDate}
+                        onChange={(e) => setEditedDate(e.target.value)}
+                        className="input text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 dark:text-gray-400">Время</label>
+                      <input
+                        type="time"
+                        value={editedTime}
+                        onChange={(e) => setEditedTime(e.target.value)}
+                        className="input text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400">Цвет</label>
+                    <div className="flex gap-1 mt-1">
+                      {colorOptions.map(option => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setEditedColor(option.value)}
+                          className={`w-6 h-6 rounded-full ${option.class} ${
+                            editedColor === option.value ? 'ring-2 ring-offset-1 ring-primary-500' : ''
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
                   <div className="flex gap-2">
                     <button 
                       onClick={handleSave}
@@ -113,6 +172,9 @@ const TaskCard = ({ task }) => {
                     <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
                       <Calendar size={12} className="mr-1 flex-shrink-0" />
                       <span>{formatDate(task.date)}</span>
+                      {task.time && (
+                        <span className="ml-1 text-primary-500">{task.time}</span>
+                      )}
                     </div>
                     
                     {task.tags?.map((tag, index) => (
