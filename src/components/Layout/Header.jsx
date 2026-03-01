@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, LayoutGrid, Sun, Moon, Plus } from 'lucide-react';
+import { Calendar, LayoutGrid, Sun, Moon, Plus, Bell } from 'lucide-react';
 
 const Header = ({ view, setView, darkMode, toggleDarkMode, onAddTask }) => {
   return (
@@ -33,6 +33,17 @@ const Header = ({ view, setView, darkMode, toggleDarkMode, onAddTask }) => {
               >
                 <LayoutGrid size={18} />
                 <span className="hidden sm:inline">Доска</span>
+              </button>
+              <button
+                onClick={() => setView('reminders')}
+                className={`px-4 py-2 rounded-md flex items-center space-x-2 transition-all ${
+                  view === 'reminders'
+                    ? 'bg-white dark:bg-gray-700 shadow-sm text-red-600 dark:text-red-400 font-medium'
+                    : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                <Bell size={18} />
+                <span className="hidden sm:inline">Напоминания</span>
               </button>
               <button
                 onClick={() => setView('calendar')}

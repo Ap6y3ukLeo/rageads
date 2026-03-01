@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { TaskProvider, useTasks } from './contexts/TaskContext';
+import { ReminderProvider } from './contexts/ReminderContext';
 import Header from './components/Layout/Header';
 import BoardView from './components/Board/BoardView';
 import CalendarView from './components/Calendar/CalendarView';
+import RemindersView from './components/Reminders/RemindersView';
 import SimpleAuth from './components/Auth/SimpleAuth';
 import DataManager from './components/UI/DataManager';
 import './index.css';
@@ -43,8 +45,10 @@ const AppContent = () => {
             </div>
           ) : view === 'board' ? (
             <BoardView />
-          ) : (
+          ) : view === 'calendar' ? (
             <CalendarView />
+          ) : (
+            <RemindersView />
           )}
         </main>
 
@@ -64,7 +68,9 @@ const AppContent = () => {
 function App() {
   return (
     <TaskProvider>
-      <AppContent />
+      <ReminderProvider>
+        <AppContent />
+      </ReminderProvider>
     </TaskProvider>
   );
 }
