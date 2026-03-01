@@ -509,7 +509,12 @@ def extend_task(task_id,extension_type,custom_date=None,custom_time=None):
   print(f'''DEBUG: Найдена задача: '{title}', дата={current_date}, время={current_time}''')
   
   try:
-    current_datetime = datetime.strptime(f'''{current_date} {current_time}''','%Y-%m-%d %H:%M')
+    # Поддержка формата с секундами и без
+    time_str = str(current_time)
+    if len(time_str.split(':')) == 3:
+      current_datetime = datetime.strptime(f'''{current_date} {time_str}''','%Y-%m-%d %H:%M:%S')
+    else:
+      current_datetime = datetime.strptime(f'''{current_date} {time_str}''','%Y-%m-%d %H:%M')
     now = datetime.now()
     print(f'''DEBUG: Текущее время задачи: {current_datetime}, сейчас: {now}''')
   except ValueError as e:
@@ -1126,7 +1131,7 @@ async def handle_button_click(update: Update,context: ContextTypes.DEFAULT_TYPE)
 
                               else:
                                 if data.startswith('done_'):
-                                  task_id = int(data[5:])
+                                  task_id = data[5:]
                                   chat_id = query.message.chat_id
                                   if delete_task(chat_id,task_id):
                                     await query.edit_message_text('✅ Задача отмечена как выполненная и удалена из напоминаний!',reply_markup=None)
@@ -1789,9 +1794,11 @@ async def post_init(application: Application):
 def main():
   try:
     init_db()
-    application = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
-    # Убираем ручную установку post_init
-    # application.post_init = post_init
+    # Создаем приложение с настройками для работы через прокси/с ограничениями
+    from telegram.request import HTTPXRequest
+    request = HTTPXRequest(connection_pool_size=8, connect_timeout=30, read_timeout=30)
+    application = Application.builder().token(BOT_TOKEN).post_init(post_init).request(request).build()
+    
     # Команда для тестирования напоминаний
     async def test_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE):
       chat_id = update.effective_chat.id
@@ -1813,7 +1820,8 @@ def main():
     # Фоновая задача напоминаний запускается через post_init
     print('🤖 Бот запущен...')
     print('Для остановки нажмите Ctrl+C')
-    application.run_polling()
+    print('⚠️ Если возникают сетевые ошибки, проверьте подключение к Telegram API')
+    application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
     return None
   except Exception as e:
     print(f'''Критическая ошибка: {e}''')
