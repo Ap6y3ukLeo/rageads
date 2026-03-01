@@ -835,7 +835,7 @@ async def handle_button_click(update: Update,context: ContextTypes.DEFAULT_TYPE)
       else:
         if data.startswith('extend_menu_'):
           print('DEBUG: Обработка extend_menu_')
-          task_id = int(data.split('_')[2])
+          task_id = data.split('_')[2]
           task = get_task_by_id(task_id)
           if task:
             title = task[2]
@@ -956,29 +956,29 @@ async def handle_button_click(update: Update,context: ContextTypes.DEFAULT_TYPE)
 
                 else:
                   if data.startswith('extend_1h_'):
-                    task_id = int(data.split('_')[2])
+                    task_id = data.split('_')[2]
                     await process_extend_option(query,context,task_id,'1h')
                     return None
                   else:
                     if data.startswith('extend_tomorrow_'):
-                      task_id = int(data.split('_')[2])
+                      task_id = data.split('_')[2]
                       await process_extend_option(query,context,task_id,'tomorrow')
                       return None
                     else:
                       if data.startswith('extend_dayafter_'):
-                        task_id = int(data.split('_')[2])
+                        task_id = data.split('_')[2]
                         await process_extend_option(query,context,task_id,'dayafter')
                         return None
                       else:
                         if data.startswith('extend_custom_'):
-                          task_id = int(data.split('_')[2])
+                          task_id = data.split('_')[2]
                           context.user_data['extending_task_id'] = task_id
                           context.user_data['state'] = 'waiting_extend_date'
                           await query.edit_message_text('📅 Выберите дату для продления:',reply_markup=get_date_inline_keyboard())
                           return None
                         else:
                           if data.startswith('cancel_extend_'):
-                            task_id = int(data.split('_')[2])
+                            task_id = data.split('_')[2]
                             task = get_task_by_id(task_id)
                             if task:
                               title = task[2]
@@ -1174,7 +1174,7 @@ async def handle_button_click(update: Update,context: ContextTypes.DEFAULT_TYPE)
 
                                         else:
                                           if data.startswith('cancel_extend_'):
-                                            task_id = int(data.split('_')[2])
+                                            task_id = data.split('_')[2]
                                             task = get_task_by_id(task_id)
                                             if task:
                                               chat_id = query.message.chat_id
