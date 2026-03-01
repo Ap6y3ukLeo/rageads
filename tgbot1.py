@@ -1659,12 +1659,22 @@ def send_reminders_sync():
           
           if should_send:
             try:
+              # Формируем inline keyboard с кнопками
+              task_id_str = str(task_id)
+              reply_markup = {
+                'inline_keyboard': [
+                  [{'text': '✅ Выполнено', 'callback_data': f'done_{task_id_str}'}],
+                  [{'text': '⏱️ Перенести', 'callback_data': f'extend_menu_{task_id_str}'}]
+                ]
+              }
+              
               # Отправляем через синхронный requests
               url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
               data = {
                   'chat_id': chat_id,
                   'text': message,
-                  'parse_mode': 'HTML'
+                  'parse_mode': 'HTML',
+                  'reply_markup': reply_markup
               }
               resp = requests.post(url, json=data)
               print(f'Отправлено напоминание: {title} (Этап: {reminder_stage} -> {new_stage})', flush=True)
