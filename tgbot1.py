@@ -523,8 +523,12 @@ def extend_task(task_id,extension_type,custom_date=None,custom_time=None):
 
   new_datetime = None
   if extension_type == '1h':
-    new_datetime = now+timedelta(hours=1)
-    print(f'''DEBUG: Продление на 1 час: {new_datetime}''')
+    # +1 час от дедлайна задачи (или от текущего времени если уже просрочено)
+    if current_datetime > now:
+      new_datetime = current_datetime + timedelta(hours=1)
+    else:
+      new_datetime = now + timedelta(hours=1)
+    print(f'''DEBUG: Продление на 1 час от дедлайна: {new_datetime}''')
   elif extension_type == 'tomorrow':
     tomorrow = now+timedelta(days=1)
     new_datetime = datetime.combine(tomorrow.date(),current_datetime.time())
