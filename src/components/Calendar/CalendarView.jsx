@@ -107,37 +107,39 @@ const CalendarView = () => {
   return (
     <div className="space-y-4">
       {/* Заголовок и навигация */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <CalendarIcon className="text-primary-500" size={28} />
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="flex items-center gap-2">
+          <CalendarIcon className="text-primary-500" size={24} />
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
             Календарь
           </h2>
         </div>
         
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto">
           <button
             onClick={goToPrevMonth}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Предыдущий месяц"
           >
-            <ChevronLeft size={24} className="text-gray-600 dark:text-gray-400" />
+            <ChevronLeft size={20} className="text-gray-600 dark:text-gray-400" />
           </button>
           
           <button
             onClick={goToToday}
-            className="px-3 py-2 text-sm bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+            className="px-3 py-2 text-xs sm:text-sm bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors whitespace-nowrap min-h-[44px]"
           >
             Сегодня
           </button>
           
           <button
             onClick={goToNextMonth}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Следующий месяц"
           >
-            <ChevronRight size={24} className="text-gray-600 dark:text-gray-400" />
+            <ChevronRight size={20} className="text-gray-600 dark:text-gray-400" />
           </button>
           
-          <span className="ml-2 text-lg font-semibold text-gray-900 dark:text-white min-w-[140px]">
+          <span className="ml-1 sm:ml-2 text-sm sm:text-lg font-semibold text-gray-900 dark:text-white min-w-[100px] sm:min-w-[140px]">
             {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
           </span>
         </div>
@@ -148,7 +150,7 @@ const CalendarView = () => {
         {weekDays.map((day, index) => (
           <div 
             key={day} 
-            className={`text-center text-sm font-medium py-2 ${
+            className={`text-center text-xs sm:text-sm font-medium py-2 ${
               index >= 5 
                 ? 'text-red-500 dark:text-red-400' 
                 : 'text-gray-600 dark:text-gray-400'
@@ -171,21 +173,21 @@ const CalendarView = () => {
               key={index}
               onClick={() => handleDateClick(day.date)}
               className={`
-                min-h-[80px] sm:min-h-[100px] p-1 rounded-lg cursor-pointer transition-all
+                min-h-[60px] sm:min-h-[100px] p-1 sm:p-2 rounded-lg cursor-pointer transition-all active:scale-95
                 ${day.isCurrentMonth 
                   ? 'bg-white dark:bg-gray-800' 
                   : 'bg-gray-50 dark:bg-gray-900'
                 }
                 ${isToday(day.date) 
-                  ? 'ring-2 ring-primary-500' 
+                  ? 'ring-2 ring-primary-500 bg-primary-50 dark:bg-primary-900/20' 
                   : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                 }
-                border border-gray-200 dark:border-gray-700
+                border border-gray-200 dark:border-gray-700 touch-manipulation
               `}
             >
               <div className="flex justify-between items-start">
                 <span className={`
-                  text-sm font-medium w-6 h-6 flex items-center justify-center rounded-full
+                  text-xs sm:text-sm font-medium w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full
                   ${isToday(day.date) 
                     ? 'bg-primary-500 text-white' 
                     : day.isCurrentMonth
@@ -198,14 +200,28 @@ const CalendarView = () => {
                 </span>
                 
                 {dayTasks.length > 0 && (
-                  <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded-full">
+                  <span className="text-[10px] sm:text-xs bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 px-1 sm:px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                     {dayTasks.length}
                   </span>
                 )}
               </div>
               
-              <div className="mt-1 space-y-1 max-h-[60px] sm:max-h-[80px] overflow-y-auto">
-                {dayTasks.slice(0, 3).map(task => (
+              {/* Мобильная версия - только цветные точки */}
+              <div className="mt-1 flex flex-wrap gap-0.5 sm:hidden">
+                {dayTasks.slice(0, 4).map((task, idx) => (
+                  <div
+                    key={idx}
+                    className={`w-1.5 h-1.5 rounded-full ${getTaskColor(task.color)}`}
+                  />
+                ))}
+                {dayTasks.length > 4 && (
+                  <span className="text-[8px] text-gray-400">+</span>
+                )}
+              </div>
+              
+              {/* Десктопная версия - названия задач */}
+              <div className="mt-1 space-y-1 max-h-[40px] sm:max-h-[80px] overflow-hidden hidden sm:block">
+                {dayTasks.slice(0, 2).map(task => (
                   <div
                     key={task.id}
                     className={`
@@ -217,9 +233,9 @@ const CalendarView = () => {
                     {task.title}
                   </div>
                 ))}
-                {dayTasks.length > 3 && (
+                {dayTasks.length > 2 && (
                   <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                    +{dayTasks.length - 3}
+                    +{dayTasks.length - 2}
                   </div>
                 )}
               </div>
