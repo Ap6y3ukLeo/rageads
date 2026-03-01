@@ -208,10 +208,10 @@ export const ReminderProvider = ({ children }) => {
     return reminders.filter(r => r.reminderDate === today);
   };
 
-  // Получить будущие напоминания
+  // Получить будущие напоминания (только после сегодня)
   const getUpcomingReminders = () => {
     const today = new Date().toISOString().split('T')[0];
-    return reminders.filter(r => r.reminderDate >= today);
+    return reminders.filter(r => r.reminderDate > today);
   };
 
   // Получить просроченные напоминания

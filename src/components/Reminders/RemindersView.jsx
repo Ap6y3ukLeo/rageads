@@ -273,42 +273,40 @@ const RemindersView = () => {
       <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
         <button
           onClick={() => setActiveTab('upcoming')}
-          className={`px-3 sm:px-4 py-2.5 rounded-lg whitespace-nowrap text-sm min-h-[44px] flex items-center gap-1 ${
+          className={`px-3 sm:px-4 py-2.5 rounded-lg whitespace-nowrap text-sm min-h-[44px] flex items-center gap-2 ${
             activeTab === 'upcoming'
-              ? 'bg-blue-500 text-white'
+              ? 'bg-gray-800 dark:bg-gray-700 text-white'
               : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
           }`}
         >
-          <span>📅</span>
-          <span className="hidden sm:inline">Предстоящие</span>
-          <span className="sm:hidden">Впереди</span>
+          <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+          <span>Впереди</span>
           <span className="bg-white/20 px-1.5 rounded text-xs">{getUpcomingReminders().length}</span>
         </button>
 
         <button
           onClick={() => setActiveTab('today')}
-          className={`px-3 sm:px-4 py-2.5 rounded-lg whitespace-nowrap text-sm min-h-[44px] flex items-center gap-1 ${
+          className={`px-3 sm:px-4 py-2.5 rounded-lg whitespace-nowrap text-sm min-h-[44px] flex items-center gap-2 ${
             activeTab === 'today'
-              ? 'bg-yellow-500 text-white'
+              ? 'bg-gray-800 dark:bg-gray-700 text-white'
               : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
           }`}
         >
-          <span>📆</span>
+          <span className="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
           <span>Сегодня</span>
           <span className="bg-white/20 px-1.5 rounded text-xs">{getTodayReminders().length}</span>
         </button>
 
         <button
           onClick={() => setActiveTab('overdue')}
-          className={`px-3 sm:px-4 py-2.5 rounded-lg whitespace-nowrap text-sm min-h-[44px] flex items-center gap-1 ${
+          className={`px-3 sm:px-4 py-2.5 rounded-lg whitespace-nowrap text-sm min-h-[44px] flex items-center gap-2 ${
             activeTab === 'overdue'
-              ? 'bg-red-500 text-white'
+              ? 'bg-gray-800 dark:bg-gray-700 text-white'
               : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
           }`}
         >
-          <span>🔴</span>
-          <span className="hidden sm:inline">Просроченные</span>
-          <span className="sm:hidden">Просроч</span>
+          <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+          <span>Просроч</span>
           <span className="bg-white/20 px-1.5 rounded text-xs">{getOverdueReminders().length}</span>
         </button>
       </div>
@@ -422,24 +420,22 @@ const RemindersView = () => {
                   </div>
                   
                   {/* Action Buttons */}
-                  <div className="flex flex-wrap sm:flex-nowrap gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                     <button
                       onClick={() => startEdit(reminder)}
-                      className="flex-1 min-w-[70px] bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 py-2.5 rounded-lg text-xs sm:text-sm font-medium flex items-center justify-center gap-1 min-h-[44px] transition-colors"
+                      className="flex-1 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-1 min-h-[44px] transition-colors"
                     >
-                      <span>✏️</span>
-                      <span className="hidden sm:inline">Изменить</span>
+                      ✏️ Изменить
                     </button>
                     <button
                       onClick={() => startExtend(reminder)}
-                      className="flex-1 min-w-[70px] bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 py-2.5 rounded-lg text-xs sm:text-sm font-medium flex items-center justify-center gap-1 min-h-[44px] transition-colors"
+                      className="flex-1 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-1 min-h-[44px] transition-colors"
                     >
-                      <span>⏱️</span>
-                      <span className="hidden sm:inline">Перенести</span>
+                      ⏱️ Перенести
                     </button>
                     <button
                       onClick={() => handleDelete(reminder.id)}
-                      className="px-3 sm:px-4 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 py-2.5 rounded-lg text-sm min-h-[44px] min-w-[44px] transition-colors"
+                      className="px-3 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 py-2 rounded-lg text-sm min-h-[44px] transition-colors"
                       title="Удалить"
                     >
                       🗑️
