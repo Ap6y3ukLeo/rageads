@@ -1,16 +1,13 @@
-name: Deploy to GitHub Pages
+name: Build Check
 
 on:
   push:
     branches: [master]
-
-permissions:
-  contents: write
-  pages: write
-  id-token: write
+  pull_request:
+    branches: [master]
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -27,8 +24,8 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+          name: build-files
+          path: ./dist
