@@ -942,6 +942,46 @@ async def handle_button_click(update: Update,context: ContextTypes.DEFAULT_TYPE)
     await query.edit_message_text('❌ Диалог отменен.')
     context.user_data.clear()
     return None
+  elif data.startswith('list_edit_'):
+    # Обработка нажатия на напоминание в списке
+    task_id = data[10:]
+    task = get_task_by_id(task_id)
+    if not task:
+      await query.edit_message_text('❌ Напоминание не найдено', reply_markup=get_main_keyboard())
+      return None
+    
+    _, chat_id, title, reminder_date, reminder_time, _, _, _, extended_count = task
+    
+    # Убираем секунды из времени
+    time_display = str(reminder_time).split(':')[0:2]
+    time_str = ':'.join(time_display)
+    
+    keyboard = [
+      [InlineKeyboardButton('✏️ Изменить название', callback_data=f'edit_title_{task_id}')],
+      [InlineKeyboardButton('📅 Изменить дату', callback_data=f'edit_date_{task_id}')],
+      [InlineKeyboardButton('⏰ Изменить время', callback_data=f'edit_time_{task_id}')],
+      [InlineKeyboardButton('🗑️ Удалить', callback_data=f'delete_{task_id}')],
+      [InlineKeyboardButton('↩️ Назад к списку', callback_data='back_to_list')]
+    ]
+    
+    extended_text = f"\n🔄 Продлено: {extended_count} раз" if extended_count > 0 else ""
+    
+    await query.edit_message_text(
+      f'''✏️ <b>Управление напоминанием:</b>
+
+📝 <b>{title}</b>
+📅 {reminder_date}
+⏰ {time_str}{extended_text}
+
+Выберите действие:''',
+      parse_mode='HTML',
+      reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return None
+  elif data == 'back_to_list':
+    # Возврат к списку напоминаний
+    await show_my_reminders_from_query(query, context)
+    return None
   else:
     if data == 'back_to_date':
       if context.user_data.get('state') == 'waiting_extend_date':
@@ -1804,59 +1844,144 @@ async def show_my_reminders(update: Update,context: ContextTypes.DEFAULT_TYPE):
 Нажмите «📝 Добавить напоминание» чтобы создать первое!''',reply_markup=get_main_keyboard())
     return None
   else:
+    # Создаем клавиатуру с кнопками для каждого напоминания
+    keyboard = []
     tasks_text = '''📋 <b>Ваши напоминания:</b>
 
 '''
+    
     for i,(task_id,title,reminder_date,reminder_time,extended_count) in enumerate(tasks,1):
       try:
         # Поддержка формата с секундами и без
         time_str = str(reminder_time)
         if len(time_str.split(':')) == 3:
-          # Формат HH:MM:SS
           task_datetime = datetime.strptime(f'''{reminder_date} {time_str}''','%Y-%m-%d %H:%M:%S')
         else:
-          # Формат HH:MM
           task_datetime = datetime.strptime(f'''{reminder_date} {time_str}''','%Y-%m-%d %H:%M')
         day_of_week = task_datetime.strftime('%A')
         now = datetime.now()
-        status = '🟢 Активно'
+        status = '🟢'
         time_until = task_datetime-now
         if task_datetime <= now:
-          time_passed = now-task_datetime
-          hours_passed = int(time_passed.total_seconds()//3600)
-          minutes_passed = int(time_passed.total_seconds()%3600//60)
-          status = f'''🔴 Просрочено ({hours_passed}ч {minutes_passed}м назад)'''
-        else:
-          if time_until <= timedelta(hours=2):
-            hours_until = int(time_until.total_seconds()//3600)
-            minutes_until = int(time_until.total_seconds()%3600//60)
-            status = f'''🟡 Напоминание через {hours_until}ч {minutes_until}м'''
+          status = '🔴'
+        elif time_until <= timedelta(hours=2):
+          status = '🟡'
 
-        tasks_text += f'''{i}. <b>{title}</b> {status}\n'''
-        # Убираем секунды из времени если есть
+        # Убираем секунды из времени
         time_display = str(reminder_time).split(':')[0:2]
-        time_str = ':'.join(time_display)
-        tasks_text += f'''   📅 {reminder_date} ⏰ {time_str} ({day_of_week})'''
+        time_str_short = ':'.join(time_display)
+        
+        button_text = f"{status} {title[:20]}{'...' if len(title) > 20 else ''} | {reminder_date} {time_str_short}"
+        keyboard.append([InlineKeyboardButton(button_text, callback_data=f'list_edit_{task_id}')])
+        
+        tasks_text += f'''{i}. {status} <b>{title}</b>
+   📅 {reminder_date} ⏰ {time_str_short} ({day_of_week})'''
         if extended_count > 0:
-          tasks_text += f''' 🔄 Продлено: {extended_count} раз'''
-
-        tasks_text += '''
-
-'''
+          tasks_text += f''' 🔄 {extended_count}'''
+        tasks_text += '''\n\n'''
       except ValueError as e:
         print(f'''Ошибка обработки задачи {task_id}: {e}''')
-        tasks_text += f'''{i}. <b>{title}</b> ⚠️ Ошибка формата\n'''
-        # Убираем секунды из времени если есть
-        time_display = str(reminder_time).split(':')[0:2]
-        time_str = ':'.join(time_display)
-        tasks_text += f'''   📅 {reminder_date} ⏰ {time_str}
-
-'''
+        button_text = f"⚠️ {title[:20]}{'...' if len(title) > 20 else ''} | {reminder_date}"
+        keyboard.append([InlineKeyboardButton(button_text, callback_data=f'list_edit_{task_id}')])
+        tasks_text += f'''{i}. ⚠️ <b>{title}</b> (ошибка формата)\n\n'''
         continue
 
-    tasks_text += '\n<b>ℹ️ Для продления нажмите на кнопку продления в уведомлении о напоминании.</b>'
-    await update.message.reply_text(tasks_text,reply_markup=get_main_keyboard(),parse_mode='HTML')
+    tasks_text += '\n<i>Нажмите на напоминание, чтобы отредактировать или удалить его</i>'
+    await update.message.reply_text(tasks_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
     return None
+
+async def handle_list_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  """Обработка нажатия на напоминание в списке"""
+  query = update.callback_query
+  await query.answer()
+  data = query.data
+  
+  if data.startswith('list_edit_'):
+    task_id = data[10:]
+    task = get_task_by_id(task_id)
+    if not task:
+      await query.edit_message_text('❌ Напоминание не найдено', reply_markup=get_main_keyboard())
+      return None
+    
+    _, chat_id, title, reminder_date, reminder_time, _, _, _, extended_count = task
+    
+    # Убираем секунды из времени
+    time_display = str(reminder_time).split(':')[0:2]
+    time_str = ':'.join(time_display)
+    
+    keyboard = [
+      [InlineKeyboardButton('✏️ Изменить название', callback_data=f'edit_title_{task_id}')],
+      [InlineKeyboardButton('📅 Изменить дату', callback_data=f'edit_date_{task_id}')],
+      [InlineKeyboardButton('⏰ Изменить время', callback_data=f'edit_time_{task_id}')],
+      [InlineKeyboardButton('🗑️ Удалить', callback_data=f'delete_{task_id}')],
+      [InlineKeyboardButton('↩️ Назад к списку', callback_data='back_to_list')]
+    ]
+    
+    extended_text = f"\n🔄 Продлено: {extended_count} раз" if extended_count > 0 else ""
+    
+    await query.edit_message_text(
+      f'''✏️ <b>Управление напоминанием:</b>
+
+📝 <b>{title}</b>
+📅 {reminder_date}
+⏰ {time_str}{extended_text}
+
+Выберите действие:''',
+      parse_mode='HTML',
+      reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return None
+  elif data == 'back_to_list':
+    # Возврат к списку напоминаний
+    await show_my_reminders_from_query(query, context)
+    return None
+
+async def show_my_reminders_from_query(query, context: ContextTypes.DEFAULT_TYPE):
+  """Показ списка напоминаний из callback query"""
+  chat_id = query.message.chat_id
+  tasks = get_user_tasks(chat_id)
+  if not tasks:
+    await query.edit_message_text('📭 У вас пока нет напоминаний.', reply_markup=get_main_keyboard())
+    return None
+  
+  keyboard = []
+  tasks_text = '''📋 <b>Ваши напоминания:</b>\n\n'''
+  
+  for i,(task_id,title,reminder_date,reminder_time,extended_count) in enumerate(tasks,1):
+    try:
+      time_str = str(reminder_time)
+      if len(time_str.split(':')) == 3:
+        task_datetime = datetime.strptime(f'''{reminder_date} {time_str}''','%Y-%m-%d %H:%M:%S')
+      else:
+        task_datetime = datetime.strptime(f'''{reminder_date} {time_str}''','%Y-%m-%d %H:%M')
+      day_of_week = task_datetime.strftime('%A')
+      now = datetime.now()
+      status = '🟢'
+      time_until = task_datetime-now
+      if task_datetime <= now:
+        status = '🔴'
+      elif time_until <= timedelta(hours=2):
+        status = '🟡'
+
+      time_display = str(reminder_time).split(':')[0:2]
+      time_str_short = ':'.join(time_display)
+      
+      button_text = f"{status} {title[:20]}{'...' if len(title) > 20 else ''} | {reminder_date} {time_str_short}"
+      keyboard.append([InlineKeyboardButton(button_text, callback_data=f'list_edit_{task_id}')])
+      
+      tasks_text += f'''{i}. {status} <b>{title}</b>\n   📅 {reminder_date} ⏰ {time_str_short} ({day_of_week})'''
+      if extended_count > 0:
+        tasks_text += f''' 🔄 {extended_count}'''
+      tasks_text += '''\n\n'''
+    except ValueError as e:
+      print(f'''Ошибка обработки задачи {task_id}: {e}''')
+      button_text = f"⚠️ {title[:20]}{'...' if len(title) > 20 else ''}"
+      keyboard.append([InlineKeyboardButton(button_text, callback_data=f'list_edit_{task_id}')])
+      tasks_text += f'''{i}. ⚠️ <b>{title}</b>\n\n'''
+      continue
+
+  tasks_text += '\n<i>Нажмите на напоминание для редактирования</i>'
+  await query.edit_message_text(tasks_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
 
 async def show_my_tasks(update: Update,context: ContextTypes.DEFAULT_TYPE):
   """Показывает задачи из мобильного приложения (из Supabase)"""
