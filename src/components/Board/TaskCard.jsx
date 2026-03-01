@@ -192,10 +192,21 @@ const TaskCard = ({ task }) => {
                           task.color === 'blue' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
                           task.color === 'purple' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300' :
                           task.color === 'green' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
-                          'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                          task.color === 'yellow' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' :
+                          task.color === 'red' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
+                          task.color === 'pink' ? 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300' :
+                          task.color === 'black' ? 'bg-gray-800 text-gray-100 dark:bg-gray-900 dark:text-gray-100' :
+                          'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                         }`}
                       >
-                        {task.color}
+                        {task.color === 'blue' ? 'Синий' :
+                         task.color === 'purple' ? 'Фиолетовый' :
+                         task.color === 'green' ? 'Зеленый' :
+                         task.color === 'yellow' ? 'Желтый' :
+                         task.color === 'red' ? 'Красный' :
+                         task.color === 'pink' ? 'Розовый' :
+                         task.color === 'black' ? 'Черный' :
+                         'Серый'}
                       </span>
                     )}
                   </div>

@@ -52,7 +52,7 @@ const RemindersView = () => {
       title: newReminder.title,
       reminderDate: newReminder.reminderDate,
       reminderTime: newReminder.reminderTime,
-      telegramChatId: '849886384'
+      telegramChatId: '7592708940'
     });
     
     if (result) {
