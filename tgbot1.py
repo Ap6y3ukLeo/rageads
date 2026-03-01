@@ -2074,20 +2074,32 @@ def send_reminders_sync():
               should_send = True
               is_overdue = True
           else:
+            # Просроченные напоминания - проверяем не чаще чем раз в 30 минут
             if reminder_datetime <= current_time:
               time_passed = current_time - reminder_datetime
               hours_passed = int(time_passed.total_seconds() // 3600)
               minutes_passed = int(time_passed.total_seconds() % 3600 // 60)
+              
+              # По умолчанию НЕ отправляем
+              should_send = False
+              
               if last_reminder:
                 try:
                   last_reminder_time = datetime.fromisoformat(last_reminder)
                   time_since_last = current_time - last_reminder_time
+                  # Отправляем только если прошло 30+ минут
                   if time_since_last >= timedelta(minutes=30):
                     should_send = True
-                except:
-                  should_send = True
+                    print(f'  -> Прошло {time_since_last.total_seconds()/60:.1f} мин, отправляю напоминание', flush=True)
+                  else:
+                    print(f'  -> Прошло только {time_since_last.total_seconds()/60:.1f} мин, пропускаю', flush=True)
+                except Exception as e:
+                  print(f'  -> Ошибка парсинга last_reminder: {e}, пропускаю', flush=True)
+                  should_send = False
               else:
+                # Нет last_reminder - первый раз для просрочки
                 should_send = True
+                print(f'  -> Первое просроченное напоминание', flush=True)
               
               if should_send:
                 message = f'''🔴 <b>ПРОСРОЧЕНО!</b>

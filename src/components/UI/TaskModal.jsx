@@ -60,7 +60,7 @@ const TaskModal = ({ isOpen, onClose, initialColumn, taskToEdit, initialDate }) 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div 
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] sm:max-h-[90vh] overflow-y-auto mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 rounded-t-2xl">
@@ -105,17 +105,17 @@ const TaskModal = ({ isOpen, onClose, initialColumn, taskToEdit, initialDate }) 
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                <CalendarIcon size={16} className="mr-2" />
+                <CalendarIcon size={16} className="mr-2 flex-shrink-0" />
                 Дата выполнения
               </label>
               <div className="flex gap-1 mb-2">
                 <button
                   type="button"
                   onClick={() => setDateMode('picker')}
-                  className={`flex-1 text-xs py-1 px-2 rounded-lg transition-colors ${
+                  className={`flex-1 text-xs py-2 sm:py-1 px-2 rounded-lg transition-colors min-h-[36px] ${
                     dateMode === 'picker' 
                       ? 'bg-primary-500 text-white' 
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
@@ -126,7 +126,7 @@ const TaskModal = ({ isOpen, onClose, initialColumn, taskToEdit, initialDate }) 
                 <button
                   type="button"
                   onClick={() => setDateMode('manual')}
-                  className={`flex-1 text-xs py-1 px-2 rounded-lg transition-colors ${
+                  className={`flex-1 text-xs py-2 sm:py-1 px-2 rounded-lg transition-colors min-h-[36px] ${
                     dateMode === 'manual' 
                       ? 'bg-primary-500 text-white' 
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
@@ -140,34 +140,32 @@ const TaskModal = ({ isOpen, onClose, initialColumn, taskToEdit, initialDate }) 
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="input"
+                  className="input w-full"
                 />
               ) : (
                 <input
                   type="text"
                   value={manualDate}
                   onChange={(e) => setManualDate(e.target.value)}
-                  className="input"
+                  className="input w-full"
                   placeholder="ГГГГ-ММ-ДД"
                 />
               )}
             </div>
 
-            {isEditing && (
-              <div>
-                <label className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Clock size={16} className="mr-2" />
-                  Время
-                </label>
-                <input
-                  type="time"
-                  value={selectedTime}
-                  onChange={(e) => setSelectedTime(e.target.value)}
-                  className="input"
-                  placeholder="ЧЧ:ММ"
-                />
-              </div>
-            )}
+            <div>
+              <label className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <Clock size={16} className="mr-2 flex-shrink-0" />
+                Время
+              </label>
+              <input
+                type="time"
+                value={selectedTime}
+                onChange={(e) => setSelectedTime(e.target.value)}
+                className="input w-full"
+                placeholder="ЧЧ:ММ"
+              />
+            </div>
           </div>
 
           <div>
