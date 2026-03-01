@@ -202,10 +202,20 @@ export const ReminderProvider = ({ children }) => {
     });
   };
 
-  // Получить напоминания на сегодня
+  // Получить напоминания на сегодня (которые ещё не прошли по времени)
   const getTodayReminders = () => {
-    const today = new Date().toISOString().split('T')[0];
-    return reminders.filter(r => r.reminderDate === today);
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM
+    
+    return reminders.filter(r => {
+      if (r.reminderDate !== today) return false;
+      // Если время установлено и оно больше текущего - это сегодняшнее
+      if (r.reminderTime) {
+        return r.reminderTime >= currentTime;
+      }
+      return true;
+    });
   };
 
   // Получить будущие напоминания (только после сегодня)
@@ -214,10 +224,21 @@ export const ReminderProvider = ({ children }) => {
     return reminders.filter(r => r.reminderDate > today);
   };
 
-  // Получить просроченные напоминания
+  // Получить просроченные напоминания (по дате или по времени сегодня)
   const getOverdueReminders = () => {
-    const today = new Date().toISOString().split('T')[0];
-    return reminders.filter(r => r.reminderDate < today);
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM
+    
+    return reminders.filter(r => {
+      // Если дата меньше сегодня - точно просрочено
+      if (r.reminderDate < today) return true;
+      // Если сегодня, но время уже прошло
+      if (r.reminderDate === today && r.reminderTime && r.reminderTime < currentTime) {
+        return true;
+      }
+      return false;
+    });
   };
 
   const value = {

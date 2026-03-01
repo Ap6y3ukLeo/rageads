@@ -180,15 +180,29 @@ const RemindersView = () => {
   };
 
   const getStatusColor = (reminder) => {
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const currentTime = now.toTimeString().slice(0, 5);
+    
+    // Просрочено по дате или по времени сегодня
     if (reminder.reminderDate < today) return 'bg-red-100 dark:bg-red-900/30 border-red-300';
+    if (reminder.reminderDate === today && reminder.reminderTime && reminder.reminderTime < currentTime) {
+      return 'bg-red-100 dark:bg-red-900/30 border-red-300';
+    }
     if (reminder.reminderDate === today) return 'bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300';
     return 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700';
   };
 
   const isOverdue = (reminder) => {
-    const today = new Date().toISOString().split('T')[0];
-    return reminder.reminderDate < today;
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const currentTime = now.toTimeString().slice(0, 5);
+    
+    if (reminder.reminderDate < today) return true;
+    if (reminder.reminderDate === today && reminder.reminderTime && reminder.reminderTime < currentTime) {
+      return true;
+    }
+    return false;
   };
 
   if (loading) {
