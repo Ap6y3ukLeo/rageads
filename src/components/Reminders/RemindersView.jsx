@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useReminders } from '../../contexts/ReminderContext';
+// v2.0 - Added edit and extend functionality
 
 const RemindersView = () => {
   const { 
