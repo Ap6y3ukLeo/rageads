@@ -1,0 +1,78 @@
+/* Стили для react-big-calendar */
+.rbc-calendar {
+  font-family: inherit;
+}
+
+.rbc-header {
+  padding: 8px;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.rbc-today {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.rbc-off-range-bg {
+  background-color: #f9fafb;
+}
+
+.rbc-event {
+  min-height: 30px;
+}
+
+.rbc-month-view {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.rbc-month-row {
+  min-height: 100px;
+}
+
+.rbc-date-cell {
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.rbc-date-cell.rbc-now {
+  font-weight: bold;
+  color: #3b82f6;
+}
+
+.rbc-show-more {
+  color: #6b7280;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+
+/* Темная тема */
+.dark .rbc-header {
+  border-color: #374151;
+  color: #d1d5db;
+}
+
+.dark .rbc-off-range-bg {
+  background-color: #111827;
+}
+
+.dark .rbc-month-view {
+  border-color: #374151;
+}
+
+.dark .rbc-today {
+  background-color: rgba(59, 130, 246, 0.2);
+}
+
+.dark .rbc-date-cell {
+  color: #d1d5db;
+}
+
+.dark .rbc-date-cell.rbc-now {
+  color: #60a5fa;
+}
+
+.dark .rbc-show-more {
+  color: #9ca3af;
+}
