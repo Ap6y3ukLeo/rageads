@@ -162,7 +162,7 @@ if sys.platform == 'win32':
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',level=logging.INFO)
 BOT_TOKEN = '8484739084:AAEFYcWm4aP96NXYsA_gMgvvrVHc4GSVDt8'
-WAITING_TITLE,WAITING_DATE,WAITING_TIME = range(3)
+WAITING_TITLE,WAITING_DATE,WAITING_TIME,WAITING_EDIT_TITLE,WAITING_EDIT_DATE,WAITING_EDIT_TIME = range(6)
 DAYS_OF_WEEK = {'понедельник':0,'вторник':1,'среда':2,'четверг':3,'пятница':4,'суббота':5,'воскресенье':6,'пн':0,'вт':1,'ср':2,'чт':3,'пт':4,'сб':5,'вс':6}
 
 # Функция для получения задач из Supabase
@@ -704,7 +704,67 @@ def get_time_inline_keyboard():
   return InlineKeyboardMarkup(keyboard)
 
 def get_reminder_keyboard(task_id,is_overdue=False):
-  keyboard = [[InlineKeyboardButton('✅ Выполнено',callback_data=f'''done_{task_id}''')],[InlineKeyboardButton('⏱️ Перенести',callback_data=f'''extend_menu_{task_id}''')]]
+  keyboard = [
+    [InlineKeyboardButton('✅ Выполнено',callback_data=f'''done_{task_id}''')],
+    [InlineKeyboardButton('✏️ Редактировать',callback_data=f'''edit_{task_id}''')],
+    [InlineKeyboardButton('⏱️ Перенести',callback_data=f'''extend_menu_{task_id}''')]
+  ]
+  return InlineKeyboardMarkup(keyboard)
+
+# Функция для обновления напоминания в SQLite
+def update_reminder_sqlite(task_id, title=None, reminder_date=None, reminder_time=None):
+  """Обновляет напоминание в SQLite"""
+  try:
+    conn = sqlite3.connect('tasks.db',check_same_thread=False)
+    cursor = conn.cursor()
+    
+    updates = []
+    params = []
+    if title is not None:
+      updates.append('title = ?')
+      params.append(title)
+    if reminder_date is not None:
+      updates.append('reminder_date = ?')
+      params.append(reminder_date)
+    if reminder_time is not None:
+      updates.append('reminder_time = ?')
+      params.append(reminder_time)
+    
+    if not updates:
+      conn.close()
+      return True
+    
+    query = f"UPDATE tasks SET {', '.join(updates)} WHERE id = ?"
+    params.append(int(task_id))
+    cursor.execute(query, params)
+    conn.commit()
+    conn.close()
+    print(f'DEBUG: Напоминание {task_id} обновлено в SQLite')
+    return True
+  except Exception as e:
+    print(f'DEBUG: Ошибка обновления в SQLite: {e}')
+    return False
+
+# Функция для обновления напоминания (SQLite или Supabase)
+def update_reminder(task_id, title=None, reminder_date=None, reminder_time=None):
+  """Обновляет напоминание в SQLite или Supabase"""
+  if is_uuid(task_id):
+    return update_reminder_in_supabase(task_id, {
+      'title': title,
+      'reminder_date': reminder_date,
+      'reminder_time': reminder_time
+    })
+  else:
+    return update_reminder_sqlite(task_id, title, reminder_date, reminder_time)
+
+def get_edit_menu_keyboard(task_id):
+  """Клавиатура меню редактирования"""
+  keyboard = [
+    [InlineKeyboardButton('📝 Изменить название', callback_data=f'edit_title_{task_id}')],
+    [InlineKeyboardButton('📅 Изменить дату', callback_data=f'edit_date_{task_id}')],
+    [InlineKeyboardButton('⏰ Изменить время', callback_data=f'edit_time_{task_id}')],
+    [InlineKeyboardButton('❌ Отмена', callback_data=f'cancel_edit_{task_id}')]
+  ]
   return InlineKeyboardMarkup(keyboard)
 
 def get_extend_menu_keyboard(task_id):
@@ -793,8 +853,20 @@ async def handle_message(update: Update,context: ContextTypes.DEFAULT_TYPE):
                             await process_custom_time_extend(update,context)
                             return None
                           else:
-                            await update.message.reply_text('Не понимаю команду. Используйте кнопки ниже 👇',reply_markup=get_main_keyboard())
-                            return None
+                            if state == WAITING_EDIT_TITLE:
+                              await process_edit_title(update,context)
+                              return None
+                            else:
+                              if state == WAITING_EDIT_DATE:
+                                await process_edit_date(update,context)
+                                return None
+                              else:
+                                if state == WAITING_EDIT_TIME:
+                                  await process_edit_time(update,context)
+                                  return None
+                                else:
+                                  await update.message.reply_text('Не понимаю команду. Используйте кнопки ниже 👇',reply_markup=get_main_keyboard())
+                                  return None
 
 async def process_custom_date_extend(update: Update,context: ContextTypes.DEFAULT_TYPE):
   text = update.message.text
@@ -1134,7 +1206,68 @@ async def handle_button_click(update: Update,context: ContextTypes.DEFAULT_TYPE)
                                   return None
 
                               else:
-                                if data.startswith('done_'):
+                                if data.startswith('edit_'):
+                                  # Обработка редактирования
+                                  task_id = data[5:]
+                                  task = get_task_by_id(task_id)
+                                  if task:
+                                    title = task[2]
+                                    reminder_date = task[3]
+                                    reminder_time = task[4]
+                                    await query.edit_message_text(
+                                      f'''✏️ <b>Редактирование напоминания:</b>
+
+📝 <b>{title}</b>
+📅 {reminder_date} ⏰ {reminder_time}
+
+Что хотите изменить?''',
+                                      parse_mode='HTML',
+                                      reply_markup=get_edit_menu_keyboard(task_id)
+                                    )
+                                  else:
+                                    await query.answer('❌ Задача не найдена', show_alert=True)
+                                  return None
+                                elif data.startswith('edit_title_'):
+                                  task_id = data[11:]
+                                  context.user_data['editing_task_id'] = task_id
+                                  context.user_data['state'] = WAITING_EDIT_TITLE
+                                  await query.edit_message_text('📝 Введите новое название напоминания:')
+                                  return None
+                                elif data.startswith('edit_date_'):
+                                  task_id = data[10:]
+                                  context.user_data['editing_task_id'] = task_id
+                                  context.user_data['state'] = WAITING_EDIT_DATE
+                                  await query.edit_message_text('📅 Выберите новую дату:', reply_markup=get_date_inline_keyboard())
+                                  return None
+                                elif data.startswith('edit_time_'):
+                                  task_id = data[10:]
+                                  context.user_data['editing_task_id'] = task_id
+                                  context.user_data['state'] = WAITING_EDIT_TIME
+                                  await query.edit_message_text('⏰ Выберите новое время:', reply_markup=get_time_inline_keyboard())
+                                  return None
+                                elif data == 'cancel_edit':
+                                  await query.edit_message_text('❌ Редактирование отменено.')
+                                  context.user_data.clear()
+                                  return None
+                                elif data.startswith('cancel_edit_'):
+                                  task_id = data[12:]
+                                  task = get_task_by_id(task_id)
+                                  if task:
+                                    title = task[2]
+                                    reminder_date = task[3]
+                                    reminder_time = task[4]
+                                    await query.edit_message_text(
+                                      f'''✏️ <b>Редактирование напоминания:</b>
+
+📝 <b>{title}</b>
+📅 {reminder_date} ⏰ {reminder_time}
+
+Что хотите изменить?''',
+                                      parse_mode='HTML',
+                                      reply_markup=get_edit_menu_keyboard(task_id)
+                                    )
+                                  return None
+                                elif data.startswith('done_'):
                                   task_id = data[5:]
                                   chat_id = query.message.chat_id
                                   if delete_task(chat_id,task_id):
@@ -1521,6 +1654,108 @@ async def delete_reminder_start_from_context(query, context, chat_id):
 
     await query.edit_message_text(tasks_text,reply_markup=InlineKeyboardMarkup(keyboard),parse_mode='HTML')
     return None
+
+async def process_edit_title(update: Update,context: ContextTypes.DEFAULT_TYPE):
+  """Обработка изменения названия"""
+  new_title = update.message.text
+  task_id = context.user_data.get('editing_task_id')
+  if not task_id:
+    await update.message.reply_text('❌ Ошибка: задача не найдена')
+    return None
+  
+  task = get_task_by_id(task_id)
+  if not task:
+    await update.message.reply_text('❌ Задача не найдена')
+    context.user_data.clear()
+    return None
+  
+  old_title = task[2]
+  if update_reminder(task_id, title=new_title):
+    await update.message.reply_text(
+      f'''✅ <b>Название изменено!</b>
+
+📝 <b>Старое:</b> {old_title}
+📝 <b>Новое:</b> {new_title}''',
+      parse_mode='HTML',
+      reply_markup=get_main_keyboard()
+    )
+  else:
+    await update.message.reply_text('❌ Ошибка при обновлении', reply_markup=get_main_keyboard())
+  context.user_data.clear()
+  return None
+
+async def process_edit_date(update: Update,context: ContextTypes.DEFAULT_TYPE):
+  """Обработка изменения даты"""
+  text = update.message.text
+  task_id = context.user_data.get('editing_task_id')
+  if not task_id:
+    await update.message.reply_text('❌ Ошибка: задача не найдена')
+    return None
+  
+  parsed_date = parse_date(text)
+  if not parsed_date:
+    await update.message.reply_text('❌ Неверный формат даты!\nИспользуйте быстрые кнопки:', reply_markup=get_date_inline_keyboard())
+    return None
+  
+  if parsed_date < datetime.now().date():
+    await update.message.reply_text('❌ Дата должна быть в будущем! Выберите другую дату:', reply_markup=get_date_inline_keyboard())
+    return None
+  
+  new_date = parsed_date.strftime('%Y-%m-%d')
+  task = get_task_by_id(task_id)
+  if not task:
+    await update.message.reply_text('❌ Задача не найдена')
+    context.user_data.clear()
+    return None
+  
+  old_date = task[3]
+  if update_reminder(task_id, reminder_date=new_date):
+    await update.message.reply_text(
+      f'''✅ <b>Дата изменена!</b>
+
+📅 <b>Старая:</b> {old_date}
+📅 <b>Новая:</b> {new_date}''',
+      parse_mode='HTML',
+      reply_markup=get_main_keyboard()
+    )
+  else:
+    await update.message.reply_text('❌ Ошибка при обновлении', reply_markup=get_main_keyboard())
+  context.user_data.clear()
+  return None
+
+async def process_edit_time(update: Update,context: ContextTypes.DEFAULT_TYPE):
+  """Обработка изменения времени"""
+  text = update.message.text
+  task_id = context.user_data.get('editing_task_id')
+  if not task_id:
+    await update.message.reply_text('❌ Ошибка: задача не найдена')
+    return None
+  
+  parsed_time = parse_time(text)
+  if not parsed_time:
+    await update.message.reply_text('❌ Неверный формат времени!\nИспользуйте формат: ЧЧ:ММ (например: 14:30)', reply_markup=get_time_inline_keyboard())
+    return None
+  
+  task = get_task_by_id(task_id)
+  if not task:
+    await update.message.reply_text('❌ Задача не найдена')
+    context.user_data.clear()
+    return None
+  
+  old_time = task[4]
+  if update_reminder(task_id, reminder_time=parsed_time):
+    await update.message.reply_text(
+      f'''✅ <b>Время изменено!</b>
+
+⏰ <b>Старое:</b> {old_time}
+⏰ <b>Новое:</b> {parsed_time}''',
+      parse_mode='HTML',
+      reply_markup=get_main_keyboard()
+    )
+  else:
+    await update.message.reply_text('❌ Ошибка при обновлении', reply_markup=get_main_keyboard())
+  context.user_data.clear()
+  return None
 
 async def delete_reminder_start(update: Update,context: ContextTypes.DEFAULT_TYPE):
   chat_id = update.effective_chat.id
