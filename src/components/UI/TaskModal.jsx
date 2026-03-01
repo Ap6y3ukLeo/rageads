@@ -58,35 +58,35 @@ const TaskModal = ({ isOpen, onClose, initialColumn, taskToEdit, initialDate }) 
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/50 backdrop-blur-sm">
       <div 
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] sm:max-h-[90vh] overflow-y-auto mx-4"
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 rounded-t-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 sm:p-6 rounded-t-2xl">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white pr-4">
               {taskToEdit ? 'Редактировать задачу' : 'Новая задача'}
             </h2>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors active:scale-95"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors active:scale-95 flex-shrink-0"
             >
               <X size={20} className="text-gray-500 dark:text-gray-400" />
             </button>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
               Название задачи *
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="input"
+              className="input w-full box-border"
               placeholder="Что нужно сделать?"
               required
               autoFocus
@@ -94,13 +94,13 @@ const TaskModal = ({ isOpen, onClose, initialColumn, taskToEdit, initialDate }) 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
               Описание
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="input min-h-[100px]"
+              className="input min-h-[80px] sm:min-h-[100px] w-full box-border resize-none"
               placeholder="Детали задачи..."
             />
           </div>
@@ -169,38 +169,38 @@ const TaskModal = ({ isOpen, onClose, initialColumn, taskToEdit, initialDate }) 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
               Цвет метки
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
               {colorOptions.map(option => (
                 <button
                   key={option.value}
                   type="button"
                   onClick={() => setColor(option.value)}
-                  className={`w-7 h-7 rounded-full ${option.class} ${
+                  className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full ${option.class} ${
                     color === option.value ? 'ring-2 ring-offset-2 ring-primary-500' : ''
-                  } active:scale-95`}
+                  } active:scale-95 flex-shrink-0`}
                   title={option.label}
                 />
               ))}
             </div>
           </div>
 
-          <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
               onClick={onClose}
-              className="btn btn-secondary flex-1 active:scale-95"
+              className="btn btn-secondary flex-1 active:scale-95 py-2 px-3 text-sm sm:text-base"
             >
               Отмена
             </button>
             <button
               type="submit"
-              className="btn btn-primary flex-1 active:scale-95"
+              className="btn btn-primary flex-1 active:scale-95 py-2 px-3 text-sm sm:text-base"
               disabled={!title.trim()}
             >
-              {taskToEdit ? 'Сохранить' : 'Добавить задачу'}
+              {taskToEdit ? 'Сохранить' : 'Добавить'}
             </button>
           </div>
         </form>
