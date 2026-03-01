@@ -426,105 +426,178 @@ def update_reminder_status(task_id,reminder_stage,last_reminder_sent=None):
   conn.commit()
   conn.close()
 
-def get_task_by_id(task_id):
-  conn = sqlite3.connect('tasks.db',check_same_thread=False)
-  cursor = conn.cursor()
-  cursor.execute('SELECT * FROM tasks WHERE id = ?',(task_id,))
-  task = cursor.fetchone()
-  conn.close()
-  if task:
-    print(f'''DEBUG get_task_by_id: Найдена задача id={task[0]}, title=\'{task[2]}\', date={task[3]}, time={task[4]}''')
-  else:
-    print(f'''DEBUG get_task_by_id: Задача {task_id} не найдена''')
+def get_reminder_from_supabase_by_id(reminder_id):
+  """Получает напоминание из Supabase по ID"""
+  try:
+    headers = {
+      'apikey': SUPABASE_KEY,
+      'Authorization': f'Bearer {SUPABASE_KEY}',
+      'Content-Type': 'application/json'
+    }
+    response = requests.get(
+      f'{SUPABASE_URL}/rest/v1/reminders?id=eq.{reminder_id}&limit=1',
+      headers=headers
+    )
+    if response.status_code == 200:
+      data = response.json()
+      if data:
+        r = data[0]
+        # Возвращаем в формате совместимом с SQLite tuple
+        # (id, chat_id, title, reminder_date, reminder_time, created_at, last_reminder_sent, reminder_stage, extended_count)
+        return (
+          r.get('id'),
+          r.get('telegram_chat_id'),
+          r.get('title'),
+          r.get('reminder_date'),
+          r.get('reminder_time'),
+          r.get('created_at'),
+          r.get('last_reminder_sent'),
+          r.get('reminder_stage', 0),
+          r.get('extended_count', 0)
+        )
+    return None
+  except Exception as e:
+    print(f'Ошибка получения напоминания из Supabase: {e}')
+    return None
 
-  return task
+def is_uuid(value):
+  """Проверяет является ли значение UUID"""
+  import re
+  uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
+  return bool(uuid_pattern.match(str(value)))
+
+def get_task_by_id(task_id):
+  # Если task_id это UUID, ищем в Supabase
+  if is_uuid(task_id):
+    print(f'DEBUG get_task_by_id: Ищем UUID {task_id} в Supabase')
+    task = get_reminder_from_supabase_by_id(task_id)
+    if task:
+      print(f'''DEBUG get_task_by_id: Найдена задача в Supabase id={task[0]}, title=\'{task[2]}\', date={task[3]}, time={task[4]}''')
+    else:
+      print(f'''DEBUG get_task_by_id: Задача {task_id} не найдена в Supabase''')
+    return task
+
+  # Иначе ищем в SQLite (пробуем как integer)
+  try:
+    int_id = int(task_id)
+    conn = sqlite3.connect('tasks.db',check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM tasks WHERE id = ?',(int_id,))
+    task = cursor.fetchone()
+    conn.close()
+    if task:
+      print(f'''DEBUG get_task_by_id: Найдена задача в SQLite id={task[0]}, title=\'{task[2]}\', date={task[3]}, time={task[4]}''')
+    else:
+      print(f'''DEBUG get_task_by_id: Задача {task_id} не найдена в SQLite''')
+    return task
+  except ValueError:
+    print(f'''DEBUG get_task_by_id: Неверный формат ID {task_id}''')
+    return None
 
 def extend_task(task_id,extension_type,custom_date=None,custom_time=None):
   print(f'''DEBUG extend_task: task_id={task_id}, type={extension_type}, custom_date={custom_date}, custom_time={custom_time}''')
-  conn = sqlite3.connect('tasks.db',check_same_thread=False)
-  cursor = conn.cursor()
-  cursor.execute('SELECT chat_id, title, reminder_date, reminder_time, extended_count FROM tasks WHERE id = ?',(task_id,))
-  task = cursor.fetchone()
+  
+  # Получаем задачу (из SQLite или Supabase)
+  task = get_task_by_id(task_id)
   if not task:
     print(f'''DEBUG: Задача {task_id} не найдена''')
-    conn.close()
     return (False,None)
-  else:
-    chat_id,title,current_date,current_time,extended_count = task
-    print(f'''DEBUG: Найдена задача: \'{title}\', дата={current_date}, время={current_time}''')
+  
+  # Распаковываем данные задачи (формат tuple от get_task_by_id)
+  # (id, chat_id, title, reminder_date, reminder_time, created_at, last_reminder_sent, reminder_stage, extended_count)
+  _, chat_id, title, current_date, current_time, _, _, _, extended_count = task
+  print(f'''DEBUG: Найдена задача: '{title}', дата={current_date}, время={current_time}''')
+  
+  try:
+    current_datetime = datetime.strptime(f'''{current_date} {current_time}''','%Y-%m-%d %H:%M')
+    now = datetime.now()
+    print(f'''DEBUG: Текущее время задачи: {current_datetime}, сейчас: {now}''')
+  except ValueError as e:
+    print(f'''DEBUG: Ошибка парсинга времени: {e}''')
+    return (False,None)
+
+  new_datetime = None
+  if extension_type == '1h':
+    new_datetime = now+timedelta(hours=1)
+    print(f'''DEBUG: Продление на 1 час: {new_datetime}''')
+  elif extension_type == 'tomorrow':
+    tomorrow = now+timedelta(days=1)
+    new_datetime = datetime.combine(tomorrow.date(),current_datetime.time())
+    if new_datetime <= now:
+      new_datetime = new_datetime+timedelta(days=1)
+    print(f'''DEBUG: Продление на завтра: {new_datetime}''')
+  elif extension_type == 'dayafter':
+    day_after = now+timedelta(days=2)
+    new_datetime = datetime.combine(day_after.date(),current_datetime.time())
+    if new_datetime <= now:
+      new_datetime = new_datetime+timedelta(days=1)
+    print(f'''DEBUG: Продление на послезавтра: {new_datetime}''')
+  elif extension_type == 'custom':
     try:
-      current_datetime = datetime.strptime(f'''{current_date} {current_time}''','%Y-%m-%d %H:%M')
-      now = datetime.now()
-      print(f'''DEBUG: Текущее время задачи: {current_datetime}, сейчас: {now}''')
+      if custom_date and custom_time:
+        custom_datetime_str = f"{custom_date} {custom_time}"
+        new_datetime = datetime.strptime(custom_datetime_str, '%Y-%m-%d %H:%M')
+      elif custom_date:
+        new_datetime = datetime.combine(datetime.strptime(custom_date, '%Y-%m-%d').date(), current_datetime.time())
+      print(f'''DEBUG: Пользовательская дата: {new_datetime}''')
     except ValueError as e:
-      print(f'''DEBUG: Ошибка парсинга времени: {e}''')
-      conn.close()
+      print(f'''DEBUG: Ошибка парсинга пользовательской даты: {e}''')
       return (False,None)
 
-    new_datetime = None
-    if extension_type == '1h':
-      new_datetime = now+timedelta(hours=1)
-      print(f'''DEBUG: Продление на 1 час: {new_datetime}''')
-    else:
-      if extension_type == 'tomorrow':
-        tomorrow = now+timedelta(days=1)
-        new_datetime = datetime.combine(tomorrow.date(),current_datetime.time())
-        if new_datetime <= now:
-          new_datetime = new_datetime+timedelta(days=1)
-
-        print(f'''DEBUG: Продление на завтра: {new_datetime}''')
+  if not new_datetime:
+    print('DEBUG: new_datetime is None')
+    return (False,None)
+    
+  if new_datetime <= now:
+    print(f'''DEBUG: Новая дата {new_datetime} в прошлом (сейчас {now})''')
+    return (False,None)
+  
+  new_date = new_datetime.strftime('%Y-%m-%d')
+  new_time = new_datetime.strftime('%H:%M')
+  print(f'''DEBUG: Новая дата={new_date}, время={new_time}''')
+  
+  # Если это UUID - обновляем в Supabase
+  if is_uuid(task_id):
+    print(f'DEBUG: Обновляем напоминание в Supabase')
+    try:
+      updates = {
+        'reminder_date': new_date,
+        'reminder_time': new_time,
+        'extended_count': extended_count + 1,
+        'reminder_stage': 0,
+        'last_reminder_sent': None
+      }
+      if update_reminder_in_supabase(task_id, updates):
+        print(f'DEBUG: Напоминание в Supabase обновлено')
+        return (True, task_id)
       else:
-        if extension_type == 'dayafter':
-          day_after = now+timedelta(days=2)
-          new_datetime = datetime.combine(day_after.date(),current_datetime.time())
-          if new_datetime <= now:
-            new_datetime = new_datetime+timedelta(days=1)
-
-          print(f'''DEBUG: Продление на послезавтра: {new_datetime}''')
-        else:
-          if extension_type == 'custom':
-            try:
-              # Создаем datetime из пользовательской даты и времени
-              if custom_date and custom_time:
-                custom_datetime_str = f"{custom_date} {custom_time}"
-                new_datetime = datetime.strptime(custom_datetime_str, '%Y-%m-%d %H:%M')
-              elif custom_date:
-                # Если только дата, используем текущее время задачи
-                new_datetime = datetime.combine(datetime.strptime(custom_date, '%Y-%m-%d').date(), current_datetime.time())
-              print(f'''DEBUG: Пользовательская дата: {new_datetime}''')
-              if new_datetime <= now:
-                print(f'''DEBUG: Дата в прошлом, переносим на: {new_datetime}''')
-
-            except ValueError as e:
-              print(f'''DEBUG: Ошибка парсинга пользовательской даты: {e}''')
-              conn.close()
-              return (False,None)
-
-    if not new_datetime:
-      print('DEBUG: new_datetime is None')
-      conn.close()
-      return (False,None)
-    else:
-      if new_datetime <= now:
-        print(f'''DEBUG: Новая дата {new_datetime} в прошлом (сейчас {now})''')
-        conn.close()
-        return (False,None)
-      else:
-        new_date = new_datetime.strftime('%Y-%m-%d')
-        new_time = new_datetime.strftime('%H:%M')
-        print(f'''DEBUG: Новая дата={new_date}, время={new_time}''')
-        cursor.execute('DELETE FROM tasks WHERE id = ?',(task_id,))
-        print(f'''DEBUG: Удалена старая задача {task_id}''')
-        cursor.execute('''
-        INSERT INTO tasks (chat_id, title, reminder_date, reminder_time, created_at, 
+        print(f'DEBUG: Ошибка обновления в Supabase')
+        return (False, None)
+    except Exception as e:
+      print(f'DEBUG: Ошибка при обновлении в Supabase: {e}')
+      return (False, None)
+  else:
+    # Обновляем в SQLite
+    print(f'DEBUG: Обновляем напоминание в SQLite')
+    try:
+      int_id = int(task_id)
+      conn = sqlite3.connect('tasks.db',check_same_thread=False)
+      cursor = conn.cursor()
+      cursor.execute('DELETE FROM tasks WHERE id = ?',(int_id,))
+      print(f'''DEBUG: Удалена старая задача {task_id}''')
+      cursor.execute('''
+        INSERT INTO tasks (chat_id, title, reminder_date, reminder_time, created_at,
                           last_reminder_sent, reminder_stage, extended_count)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ''',(chat_id,title,new_date,new_time,datetime.now().isoformat(),None,0,extended_count+1))
-        new_task_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
-        print(f'''DEBUG: Создана новая задача {new_task_id}''')
-        return (True,new_task_id)
+      ''',(chat_id,title,new_date,new_time,datetime.now().isoformat(),None,0,extended_count+1))
+      new_task_id = cursor.lastrowid
+      conn.commit()
+      conn.close()
+      print(f'''DEBUG: Создана новая задача {new_task_id}''')
+      return (True,new_task_id)
+    except Exception as e:
+      print(f'DEBUG: Ошибка при обновлении в SQLite: {e}')
+      return (False, None)
 
 def parse_date(text):
   now = datetime.now()
