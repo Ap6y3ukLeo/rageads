@@ -11,9 +11,16 @@ import re
 import sys
 import io
 
+# Загружаем переменные окружения из .env файла
+from dotenv import load_dotenv
+load_dotenv()
+
+# Telegram Bot Token
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+
 # Supabase configuration
-SUPABASE_URL = 'https://cgfbstfgnvdqwzxpjfjp.supabase.co'
-SUPABASE_KEY = 'sb_publishable_tlZ35e6I6Eyme3dCMJEqgg_V1N3xkYC'
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://cgfbstfgnvdqwzxpjfjp.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
 # Функции для работы с напоминаниями в Supabase
 def get_reminders_from_supabase(chat_id):
@@ -112,6 +119,7 @@ def delete_reminder_from_supabase(reminder_id):
 
 def update_reminder_in_supabase(reminder_id, updates):
     """Обновляет напоминание в Supabase"""
+    print(f'DEBUG update_reminder_in_supabase: reminder_id={reminder_id}, updates={updates}')
     try:
         headers = {
             'apikey': SUPABASE_KEY,
@@ -120,12 +128,16 @@ def update_reminder_in_supabase(reminder_id, updates):
             'Prefer': 'return=representation'
         }
         
+        url = f'{SUPABASE_URL}/rest/v1/reminders?id=eq.{reminder_id}'
+        print(f'DEBUG update_reminder_in_supabase: URL={url}')
+        
         response = requests.patch(
-            f'{SUPABASE_URL}/rest/v1/reminders?id=eq.{reminder_id}',
+            url,
             headers=headers,
             json=updates
         )
         
+        print(f'DEBUG update_reminder_in_supabase: status_code={response.status_code}, response={response.text[:200]}')
         return response.status_code in [200, 204]
         
     except Exception as e:
@@ -161,9 +173,20 @@ if sys.platform == 'win32':
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', newline='\n')
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',level=logging.INFO)
-BOT_TOKEN = '8484739084:AAEFYcWm4aP96NXYsA_gMgvvrVHc4GSVDt8'
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 WAITING_TITLE,WAITING_DATE,WAITING_TIME,WAITING_EDIT_TITLE,WAITING_EDIT_DATE,WAITING_EDIT_TIME = range(6)
 DAYS_OF_WEEK = {'понедельник':0,'вторник':1,'среда':2,'четверг':3,'пятница':4,'суббота':5,'воскресенье':6,'пн':0,'вт':1,'ср':2,'чт':3,'пт':4,'сб':5,'вс':6}
+
+def format_date_russian(date_str):
+  """Конвертирует дату из формата YYYY-MM-DD в русский формат DD.MM.YYYY"""
+  try:
+    if '-' in date_str:
+      parts = date_str.split('-')
+      if len(parts) == 3:
+        return f'{parts[2]}.{parts[1]}.{parts[0]}'
+  except:
+    pass
+  return date_str
 
 # Функция для получения задач из Supabase
 def get_tasks_from_supabase(user_telegram_id=None):
@@ -615,7 +638,7 @@ def parse_date(text):
     return now.date()
   else:
     if 'завтра' in text_lower:
-      return now+timedelta(days=1).date()
+      return (now+timedelta(days=1)).date()
     else:
       for day_name,day_num in DAYS_OF_WEEK.items():
         if day_name in text_lower:
@@ -627,11 +650,26 @@ def parse_date(text):
           return (now+timedelta(days=days_ahead)).date()
         
         # Пробуем разные форматы даты
-        date_formats = ['%Y-%m-%d','%d-%m-%Y','%d.%m.%Y','%d/%m/%Y','%d %m %Y']
-        for date_format in date_formats:
+        # Сначала пробуем с годом
+        date_formats_with_year = ['%Y-%m-%d','%d-%m-%Y','%d.%m.%Y','%d/%m/%Y','%d %m %Y']
+        for date_format in date_formats_with_year:
           try:
             date_obj = datetime.strptime(text,date_format).date()
             return date_obj
+          except ValueError:
+            pass
+        
+        # Теперь пробуем форматы без года (ДД-ММ или ДД.ММ) - добавляем текущий год
+        date_formats_no_year = ['%d-%m','%d.%m','%d %m']
+        for date_format in date_formats_no_year:
+          try:
+            date_obj = datetime.strptime(text,date_format)
+            # Добавляем текущий год
+            date_obj = date_obj.replace(year=now.year)
+            # Если дата уже прошла в этом году, используем следующий год
+            if date_obj.date() < now.date():
+              date_obj = date_obj.replace(year=now.year + 1)
+            return date_obj.date()
           except ValueError:
             pass
 
@@ -714,6 +752,7 @@ def get_reminder_keyboard(task_id,is_overdue=False):
 # Функция для обновления напоминания в SQLite
 def update_reminder_sqlite(task_id, title=None, reminder_date=None, reminder_time=None):
   """Обновляет напоминание в SQLite"""
+  print(f'DEBUG update_reminder_sqlite: task_id={task_id}, title={title}, date={reminder_date}, time={reminder_time}')
   try:
     conn = sqlite3.connect('tasks.db',check_same_thread=False)
     cursor = conn.cursor()
@@ -731,15 +770,18 @@ def update_reminder_sqlite(task_id, title=None, reminder_date=None, reminder_tim
       params.append(reminder_time)
     
     if not updates:
+      print(f'DEBUG update_reminder_sqlite: Нет полей для обновления')
       conn.close()
       return True
     
     query = f"UPDATE tasks SET {', '.join(updates)} WHERE id = ?"
     params.append(int(task_id))
+    print(f'DEBUG update_reminder_sqlite: query={query}, params={params}')
     cursor.execute(query, params)
     conn.commit()
+    rows_affected = cursor.rowcount
     conn.close()
-    print(f'DEBUG: Напоминание {task_id} обновлено в SQLite')
+    print(f'DEBUG: Напоминание {task_id} обновлено в SQLite, rows_affected={rows_affected}')
     return True
   except Exception as e:
     print(f'DEBUG: Ошибка обновления в SQLite: {e}')
@@ -749,11 +791,21 @@ def update_reminder_sqlite(task_id, title=None, reminder_date=None, reminder_tim
 def update_reminder(task_id, title=None, reminder_date=None, reminder_time=None):
   """Обновляет напоминание в SQLite или Supabase"""
   if is_uuid(task_id):
-    return update_reminder_in_supabase(task_id, {
-      'title': title,
-      'reminder_date': reminder_date,
-      'reminder_time': reminder_time
-    })
+    # Собираем только не-None поля для обновления
+    updates = {}
+    if title is not None:
+      updates['title'] = title
+    if reminder_date is not None:
+      updates['reminder_date'] = reminder_date
+    if reminder_time is not None:
+      updates['reminder_time'] = reminder_time
+    
+    if not updates:
+      print(f'DEBUG update_reminder: Нет данных для обновления')
+      return False
+    
+    print(f'DEBUG update_reminder: Обновляем UUID {task_id} с данными: {updates}')
+    return update_reminder_in_supabase(task_id, updates)
   else:
     return update_reminder_sqlite(task_id, title, reminder_date, reminder_time)
 
@@ -1246,8 +1298,27 @@ async def handle_button_click(update: Update,context: ContextTypes.DEFAULT_TYPE)
                                   return None
 
                               else:
-                                if data.startswith('edit_'):
-                                  # Обработка редактирования
+                                # Сначала проверяем специфичные edit_*, потом общий edit_
+                                if data.startswith('edit_title_'):
+                                  task_id = data[11:]
+                                  context.user_data['editing_task_id'] = task_id
+                                  context.user_data['state'] = WAITING_EDIT_TITLE
+                                  await query.edit_message_text('📝 Введите новое название напоминания:')
+                                  return None
+                                elif data.startswith('edit_date_'):
+                                  task_id = data[10:]
+                                  context.user_data['editing_task_id'] = task_id
+                                  context.user_data['state'] = WAITING_EDIT_DATE
+                                  await query.edit_message_text('📅 Выберите новую дату:', reply_markup=get_date_inline_keyboard())
+                                  return None
+                                elif data.startswith('edit_time_'):
+                                  task_id = data[10:]
+                                  context.user_data['editing_task_id'] = task_id
+                                  context.user_data['state'] = WAITING_EDIT_TIME
+                                  await query.edit_message_text('⏰ Выберите новое время:', reply_markup=get_time_inline_keyboard())
+                                  return None
+                                elif data.startswith('edit_'):
+                                  # Обработка редактирования (общий случай edit_{task_id})
                                   task_id = data[5:]
                                   task = get_task_by_id(task_id)
                                   if task:
@@ -1266,24 +1337,6 @@ async def handle_button_click(update: Update,context: ContextTypes.DEFAULT_TYPE)
                                     )
                                   else:
                                     await query.answer('❌ Задача не найдена', show_alert=True)
-                                  return None
-                                elif data.startswith('edit_title_'):
-                                  task_id = data[11:]
-                                  context.user_data['editing_task_id'] = task_id
-                                  context.user_data['state'] = WAITING_EDIT_TITLE
-                                  await query.edit_message_text('📝 Введите новое название напоминания:')
-                                  return None
-                                elif data.startswith('edit_date_'):
-                                  task_id = data[10:]
-                                  context.user_data['editing_task_id'] = task_id
-                                  context.user_data['state'] = WAITING_EDIT_DATE
-                                  await query.edit_message_text('📅 Выберите новую дату:', reply_markup=get_date_inline_keyboard())
-                                  return None
-                                elif data.startswith('edit_time_'):
-                                  task_id = data[10:]
-                                  context.user_data['editing_task_id'] = task_id
-                                  context.user_data['state'] = WAITING_EDIT_TIME
-                                  await query.edit_message_text('⏰ Выберите новое время:', reply_markup=get_time_inline_keyboard())
                                   return None
                                 elif data == 'cancel_edit':
                                   await query.edit_message_text('❌ Редактирование отменено.')
@@ -1548,6 +1601,7 @@ async def show_help(update: Update,context: ContextTypes.DEFAULT_TYPE):
 <b>Поддерживаемые форматы даты:</b>
 • <b>ГГГГ-ММ-ДД</b> - 2024-12-31
 • <b>ДД-ММ-ГГГГ</b> - 02-10-2025
+• <b>ДД-ММ</b> - 02-10 (текущий год)
 • <b>ДД.ММ.ГГГГ</b> - 02.10.2025
 • <b>ДД/ММ/ГГГГ</b> - 02/10/2025
 • <b>Сегодня</b> - на сегодня
@@ -1699,6 +1753,8 @@ async def process_edit_title(update: Update,context: ContextTypes.DEFAULT_TYPE):
   """Обработка изменения названия"""
   new_title = update.message.text
   task_id = context.user_data.get('editing_task_id')
+  print(f'DEBUG process_edit_title: task_id={task_id}, new_title={new_title}')
+  
   if not task_id:
     await update.message.reply_text('❌ Ошибка: задача не найдена')
     return None
@@ -1710,7 +1766,10 @@ async def process_edit_title(update: Update,context: ContextTypes.DEFAULT_TYPE):
     return None
   
   old_title = task[2]
-  if update_reminder(task_id, title=new_title):
+  result = update_reminder(task_id, title=new_title)
+  print(f'DEBUG process_edit_title: update_reminder result={result}')
+  
+  if result:
     await update.message.reply_text(
       f'''✅ <b>Название изменено!</b>
 
@@ -1728,11 +1787,15 @@ async def process_edit_date(update: Update,context: ContextTypes.DEFAULT_TYPE):
   """Обработка изменения даты"""
   text = update.message.text
   task_id = context.user_data.get('editing_task_id')
+  print(f'DEBUG process_edit_date: task_id={task_id}, text={text}')
+  
   if not task_id:
     await update.message.reply_text('❌ Ошибка: задача не найдена')
     return None
   
   parsed_date = parse_date(text)
+  print(f'DEBUG process_edit_date: parsed_date={parsed_date}')
+  
   if not parsed_date:
     await update.message.reply_text('❌ Неверный формат даты!\nИспользуйте быстрые кнопки:', reply_markup=get_date_inline_keyboard())
     return None
@@ -1749,7 +1812,10 @@ async def process_edit_date(update: Update,context: ContextTypes.DEFAULT_TYPE):
     return None
   
   old_date = task[3]
-  if update_reminder(task_id, reminder_date=new_date):
+  result = update_reminder(task_id, reminder_date=new_date)
+  print(f'DEBUG process_edit_date: update_reminder result={result}')
+  
+  if result:
     await update.message.reply_text(
       f'''✅ <b>Дата изменена!</b>
 
@@ -1767,11 +1833,15 @@ async def process_edit_time(update: Update,context: ContextTypes.DEFAULT_TYPE):
   """Обработка изменения времени"""
   text = update.message.text
   task_id = context.user_data.get('editing_task_id')
+  print(f'DEBUG process_edit_time: task_id={task_id}, text={text}')
+  
   if not task_id:
     await update.message.reply_text('❌ Ошибка: задача не найдена')
     return None
   
   parsed_time = parse_time(text)
+  print(f'DEBUG process_edit_time: parsed_time={parsed_time}')
+  
   if not parsed_time:
     await update.message.reply_text('❌ Неверный формат времени!\nИспользуйте формат: ЧЧ:ММ (например: 14:30)', reply_markup=get_time_inline_keyboard())
     return None
@@ -1783,7 +1853,10 @@ async def process_edit_time(update: Update,context: ContextTypes.DEFAULT_TYPE):
     return None
   
   old_time = task[4]
-  if update_reminder(task_id, reminder_time=parsed_time):
+  result = update_reminder(task_id, reminder_time=parsed_time)
+  print(f'DEBUG process_edit_time: update_reminder result={result}')
+  
+  if result:
     await update.message.reply_text(
       f'''✅ <b>Время изменено!</b>
 
@@ -1968,6 +2041,7 @@ async def show_my_reminders_from_query(query, context: ContextTypes.DEFAULT_TYPE
       
       button_text = f"{status} {title[:20]}{'...' if len(title) > 20 else ''} | {reminder_date} {time_str_short}"
       keyboard.append([InlineKeyboardButton(button_text, callback_data=f'list_edit_{task_id}')])
+      keyboard.append([InlineKeyboardButton('✏️ Редактировать', callback_data=f'list_edit_{task_id}')])
       
       tasks_text += f'''{i}. {status} <b>{title}</b>\n   📅 {reminder_date} ⏰ {time_str_short} ({day_of_week})'''
       if extended_count > 0:
@@ -1977,6 +2051,7 @@ async def show_my_reminders_from_query(query, context: ContextTypes.DEFAULT_TYPE
       print(f'''Ошибка обработки задачи {task_id}: {e}''')
       button_text = f"⚠️ {title[:20]}{'...' if len(title) > 20 else ''}"
       keyboard.append([InlineKeyboardButton(button_text, callback_data=f'list_edit_{task_id}')])
+      keyboard.append([InlineKeyboardButton('✏️ Редактировать', callback_data=f'list_edit_{task_id}')])
       tasks_text += f'''{i}. ⚠️ <b>{title}</b>\n\n'''
       continue
 
@@ -2060,19 +2135,57 @@ def send_reminders_sync():
               message = f'''🟡 <b>НАПОМИНАНИЕ: ЧЕРЕЗ 2 ЧАСА ИСТЕКАЕТ СРОК!</b>
 
 📝 <b>{title}</b>
-⏰ Дедлайн: {reminder_date} {reminder_time}
+⏰ Дедлайн: {format_date_russian(reminder_date)} {reminder_time}
 🕐 Осталось: {hours}ч {minutes}м'''
               new_stage = 1
               should_send = True
               is_overdue = False
             elif hours_until_deadline <= 0:
-              message = f'''🔴 <b>ВНИМАНИЕ: СРОК ИСТЁК!</b>
+              # Проверяем 30-минутный интервал для просроченных напоминаний
+              if last_reminder:
+                try:
+                  # Убираем timezone и парсим вручную
+                  clean_time = last_reminder.replace('+03:00', '').replace('Z', '').strip()
+                  # Меняем T на пробел для парсинга
+                  clean_time = clean_time.replace('T', ' ')
+                  # Убираем микросекунды если есть
+                  if '.' in clean_time:
+                    clean_time = clean_time.split('.')[0]
+                  last_reminder_dt = datetime.strptime(clean_time, '%Y-%m-%d %H:%M:%S')
+                  # Делаем current_time тоже naive для сравнения
+                  current_time_naive = current_time.replace(tzinfo=None)
+                  time_since_last = current_time_naive - last_reminder_dt
+                  if time_since_last >= timedelta(minutes=30):
+                    message = f'''🔴 <b>ВНИМАНИЕ: СРОК ИСТЁК!</b>
 
 📝 <b>{title}</b>
-⏰ Дедлайн: {reminder_date} {reminder_time}'''
-              new_stage = 2
-              should_send = True
-              is_overdue = True
+⏰ Дедлайн: {format_date_russian(reminder_date)} {reminder_time}'''
+                    new_stage = 2
+                    should_send = True
+                    is_overdue = True
+                    print(f'  -> Просрочка: прошло {time_since_last.total_seconds()/60:.1f} мин, отправляю', flush=True)
+                  else:
+                    print(f'  -> Просрочка: прошло только {time_since_last.total_seconds()/60:.1f} мин, пропускаю', flush=True)
+                    should_send = False
+                except Exception as e:
+                  print(f'  -> Ошибка парсинга last_reminder: {e}', flush=True)
+                  message = f'''🔴 <b>ВНИМАНИЕ: СРОК ИСТЁК!</b>
+
+📝 <b>{title}</b>
+⏰ Дедлайн: {format_date_russian(reminder_date)} {reminder_time}'''
+                  new_stage = 2
+                  should_send = True
+                  is_overdue = True
+              else:
+                # Нет last_reminder - отправляем сразу
+                message = f'''🔴 <b>ВНИМАНИЕ: СРОК ИСТЁК!</b>
+
+📝 <b>{title}</b>
+⏰ Дедлайн: {format_date_russian(reminder_date)} {reminder_time}'''
+                new_stage = 2
+                should_send = True
+                is_overdue = True
+                print(f'  -> Первое просроченное напоминание (stage=0)', flush=True)
           else:
             # Просроченные напоминания - проверяем не чаще чем раз в 30 минут
             if reminder_datetime <= current_time:
@@ -2083,10 +2196,20 @@ def send_reminders_sync():
               # По умолчанию НЕ отправляем
               should_send = False
               
+              # Всегда проверяем время с момента последнего напоминания
               if last_reminder:
                 try:
-                  last_reminder_time = datetime.fromisoformat(last_reminder)
-                  time_since_last = current_time - last_reminder_time
+                  # Убираем timezone и парсим вручную
+                  clean_time = last_reminder.replace('+03:00', '').replace('Z', '').strip()
+                  # Меняем T на пробел для парсинга
+                  clean_time = clean_time.replace('T', ' ')
+                  # Убираем микросекунды если есть
+                  if '.' in clean_time:
+                    clean_time = clean_time.split('.')[0]
+                  last_reminder_time = datetime.strptime(clean_time, '%Y-%m-%d %H:%M:%S')
+                  # Делаем current_time тоже naive для сравнения
+                  current_time_naive = current_time.replace(tzinfo=None)
+                  time_since_last = current_time_naive - last_reminder_time
                   # Отправляем только если прошло 30+ минут
                   if time_since_last >= timedelta(minutes=30):
                     should_send = True
@@ -2099,13 +2222,13 @@ def send_reminders_sync():
               else:
                 # Нет last_reminder - первый раз для просрочки
                 should_send = True
-                print(f'  -> Первое просроченное напоминание', flush=True)
+                print(f'  -> Первое просроченное напоминание (last_reminder=None)', flush=True)
               
               if should_send:
                 message = f'''🔴 <b>ПРОСРОЧЕНО!</b>
 
 📝 <b>{title}</b>
-⏰ Дедлайн был: {reminder_date} {reminder_time}
+⏰ Дедлайн был: {format_date_russian(reminder_date)} {reminder_time}
 ⏱️ Прошло времени: {hours_passed}ч {minutes_passed}м
 ❗️ Не забудьте выполнить задачу!'''
                 new_stage = 2
@@ -2115,6 +2238,11 @@ def send_reminders_sync():
             try:
               # Формируем inline keyboard с кнопками
               task_id_str = str(task_id)
+              
+              # Добавляем ссылку в текст сообщения (без HTML, чтобы Telegram сделал её кликабельной)
+              deep_link = f'taskboard://reminder/{task_id_str}'
+              message_with_link = message + f'\n\n📱 Открыть в приложении: {deep_link}'
+              
               reply_markup = {
                 'inline_keyboard': [
                   [{'text': '✅ Выполнено', 'callback_data': f'done_{task_id_str}'}],
@@ -2126,7 +2254,7 @@ def send_reminders_sync():
               url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
               data = {
                   'chat_id': chat_id,
-                  'text': message,
+                  'text': message_with_link,
                   'parse_mode': 'HTML',
                   'reply_markup': reply_markup
               }
