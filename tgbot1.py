@@ -15,7 +15,7 @@ TELEGRAM_BOT_TOKEN = "8484739084:AAEFYcWm4aP96NXYsA_gMgvvrVHc4GSVDt8"
 
 # Supabase credentials
 SUPABASE_URL = "https://cgfbstfgnvdqwzxpjfjp.supabase.co"
-SUPABASE_KEY = "cgfbstfgnvdqwzxpjfjp"
+SUPABASE_KEY = "sb_publishable_tlZ35e6I6Eyme3dCMJEqgg_V1N3xkYC"
 
 # Supabase configuration (used throughout the bot)
 # Values already defined above
